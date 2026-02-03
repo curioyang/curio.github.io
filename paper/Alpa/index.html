@@ -1,0 +1,1036 @@
+
+<!DOCTYPE html><html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="hexo-theme" content="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.33.1" theme-name="Stellar" theme-version="1.33.1">
+  
+  
+  <meta name="generator" content="Hexo 8.1.1">
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel="preconnect" href="https://gcore.jsdelivr.net" crossorigin><link rel="preconnect" href="https://unpkg.com" crossorigin><link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin>
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000">
+  <meta name="theme-color" content="#f9fafb">
+  <title>Alpa论文阅读 - Curio.OoO</title>
+
+  
+    <meta name="description" content="论文链接：[https:&#x2F;&#x2F;www.usenix.org&#x2F;conference&#x2F;osdi22&#x2F;presentation&#x2F;zheng-lianmin] 内容简介Alpa通过生成统一数据、操作符和管道并行性的执行计划，自动化大型深度学习(DL)模型的模型并行训练。现有的模型并行训练系统要么要求用户手动创建并行化计划，要么从有限的模型并行配置空间中自动生成并行化计划。它们不足以在分布式计算设备上扩展复杂">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Alpa论文阅读">
+<meta property="og:url" content="https://curioyang.top/paper/Alpa/">
+<meta property="og:site_name" content="Curio.OoO">
+<meta property="og:description" content="论文链接：[https:&#x2F;&#x2F;www.usenix.org&#x2F;conference&#x2F;osdi22&#x2F;presentation&#x2F;zheng-lianmin] 内容简介Alpa通过生成统一数据、操作符和管道并行性的执行计划，自动化大型深度学习(DL)模型的模型并行训练。现有的模型并行训练系统要么要求用户手动创建并行化计划，要么从有限的模型并行配置空间中自动生成并行化计划。它们不足以在分布式计算设备上扩展复杂">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/inter-op_intra-op.png">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/inter-op_intra-op.png">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/Sharding%20Spec.png">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/Resharding.png">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/parallel_algo_for_3D_matmul.png">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/latency%20of%20a%20pipeline.png">
+<meta property="og:image" content="https://curioyang.top/images/Alpa/cross-mesh%20resharding.png">
+<meta property="article:published_time" content="2024-04-17T16:00:00.000Z">
+<meta property="article:modified_time" content="2026-02-03T16:15:50.319Z">
+<meta property="article:author" content="Curio Yang">
+<meta property="article:tag" content="Distribution">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://curioyang.top/images/Alpa/inter-op_intra-op.png">
+  
+  
+  
+  <meta name="keywords" content="Distribution">
+
+  <!-- feed -->
+  
+
+  <link rel="stylesheet" href="/css/main.css?v=1.33.1">
+
+
+  
+
+  
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Curio Yang","sameAs":[]},"dateCreated":"2024-04-18T00:00:00+08:00","dateModified":"2026-02-04T00:15:50+08:00","datePublished":"2024-04-18T00:00:00+08:00","description":"论文链接：[https://www.usenix.org/conference/osdi22/presentation/zheng-lianmin]\n内容简介Alpa通过生成统一数据、操作符和管道并行性的执行计划，自动化大型深度学习(DL)模型的模型并行训练。现有的模型并行训练系统要么要求用户手动创建并行化计划，要么从有限的模型并行配置空间中自动生成并行化计划。它们不足以在分布式计算设备上扩展复杂的深度学习模型。Alpa通过将并行性视为两个层次:操作符间并行性和操作符内并行性来分配大型DL模型的训练。在此基础上，Alpa为大规模模型并行执行计划构建了一个新的分层空间。Alpa设计了许多编译通道，以便在每个并行级别自动派生有效的并行执行计划。Alpa实现了一个高效的运行时来协调分布式计算设备上的两级并行执行。我们的评估表明，Alpa生成的并行化计划可以匹配或优于手动调整的模型并行训练系统，甚至在它们设计的模型上也是如此。与专门的系统不同，Alpa还泛化到具有异构体系结构的模型和没有手动设计计划的模型。\n\n通过inter-op pass将计算图分割为子图，设备集群分割为device mesh，并寻找将子图分配给device mesh的最佳方式。\n通过intra-op pass为inter-op pass找到每个流水线阶段的子图-device mesh的最佳并行方案\n运行时编排 生成静态指令，按照顺序排列计算和通信操作，并启动设备集群上的分布式计算图推理。\n","headline":"Alpa论文阅读","mainEntityOfPage":{"@type":"WebPage","@id":"https://curioyang.top/paper/Alpa/"},"publisher":{"@type":"Organization","name":"Curio Yang","sameAs":[]},"url":"https://curioyang.top/paper/Alpa/","keywords":"Distribution","image":[]}</script>
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/xaoxuu/favicon/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/xaoxuu/favicon/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/xaoxuu/favicon/favicon-16x16.png"><link rel="manifest" href="/assets/xaoxuu/favicon/site.webmanifest"><link rel="shortcut icon" href="/assets/xaoxuu/favicon/favicon.ico"><meta name="theme-color" content="#f8f8f8"><link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-screen-webfont/1.7.0/style.min.css" media="all" /><style>
+.page-footer .text {
+  text-align: center;
+}
+</style>
+
+<!-- hexo injector head_end start --><script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@7.1.2/dist/mermaid.esm.min.mjs">
+    mermaid.initialize(
+      startOnLoad: true,
+    );
+    </script><!-- hexo injector head_end end --></head>
+<body><div class="sitebg"><div class="siteblur"></div></div>
+
+<div class="l_body content" id="start" layout="post" type="tech" ><aside class="l_left"><div class="sidebg"></div><div class="leftbar-container">
+
+
+<header class="header"><div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="https://avatars.githubusercontent.com/u/39184746?v=4" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></a><a class="title" href="/"><div class="main">Curio.OoO</div><div class="sub normal cap">生活未必事事如愿</div><div class="sub hover cap" style="opacity:0"> 成长必定步步坎坷</div></a></div></header>
+
+<div class="nav-area">
+
+<nav class="menu dis-select"><a class="nav-item" title="主页" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item" title="技术相关" href="/tech/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item" title="生活点滴" href="/life/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a><a class="nav-item" title="个人项目" href="/wiki/" style="color:#2196f3"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a></nav>
+</div>
+<div class="widgets">
+<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" placeholder="Search"></form><div id="search-result"></div><div class="search-no-result">No Results!</div></div>
+
+<widget class="widget-wrapper related post-list"><div class="widget-header dis-select"><span class="name">Topic: Paper</span></div><div class="widget-body"><a class="item active" href="/paper/Alpa/"><span class="title">Alpa论文阅读</span><svg class="active-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M21 11.098v4.993c0 3.096 0 4.645-.734 5.321c-.35.323-.792.526-1.263.58c-.987.113-2.14-.907-4.445-2.946c-1.02-.901-1.529-1.352-2.118-1.47a2.225 2.225 0 0 0-.88 0c-.59.118-1.099.569-2.118 1.47c-2.305 2.039-3.458 3.059-4.445 2.945a2.238 2.238 0 0 1-1.263-.579C3 20.736 3 19.188 3 16.091v-4.994C3 6.81 3 4.666 4.318 3.333C5.636 2 7.758 2 12 2c4.243 0 6.364 0 7.682 1.332C21 4.665 21 6.81 21 11.098" opacity=".5"/><path fill="currentColor" d="M9 5.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5z"/></svg></a></div></widget>
+
+<widget class="widget-wrapper recent post-list"><div class="widget-header dis-select"><span class="name">Recent Update</span></div><div class="widget-body fs14"><a class="item title" href="/paper/Alpa/"><span class="title">Alpa论文阅读</span></a></div></widget>
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" href="https://github.com/curioyang" target="_blank" rel="external nofollow noopener noreferrer"><img src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/08a41b181ce68.svg"/></a></div></footer>
+</div></aside><div class="l_main" id="main">
+
+
+
+
+
+<div class="article banner top">
+  <div class="content">
+    <div class="top bread-nav footnote"><div class="left"><div class="flex-row" id="breadcrumb"><a class="cap breadcrumb" href="/">Home</a>
+<span class="sep"></span><a class="cap breadcrumb" id="menu" href="/topic/">Topic</a><span class="sep"></span><a class="cap breadcrumb" id="proj" href="/paper/Alpa/">Paper</a></div>
+<div class="flex-row" id="post-meta"><span class="text created">Posted on: <time datetime="2024-04-17T16:00:00.000Z">2024-04-18</time></span><span class="sep updated"></span><span class="text updated">Updated on: <time datetime="2026-02-03T16:15:50.319Z">2026-02-04</time></span></div></div></div>
+    
+    <div class="bottom only-title">
+      
+      <div class="text-area">
+        <h1 class="text title"><span>Alpa论文阅读</span></h1>
+        
+      </div>
+    </div>
+    
+  </div>
+  </div><article class="md-text content"><p>论文链接：[<a target="_blank" rel="noopener" href="https://www.usenix.org/conference/osdi22/presentation/zheng-lianmin]">https://www.usenix.org/conference/osdi22/presentation/zheng-lianmin]</a></p>
+<h2 id="内容简介"><a href="#内容简介" class="headerlink" title="内容简介"></a>内容简介</h2><p>Alpa通过生成统一数据、操作符和管道并行性的执行计划，自动化大型深度学习(DL)模型的模型并行训练。现有的模型并行训练系统要么要求用户手动创建并行化计划，要么从有限的模型并行配置空间中自动生成并行化计划。它们不足以在分布式计算设备上扩展复杂的深度学习模型。Alpa通过将并行性视为两个层次:操作符间并行性和操作符内并行性来分配大型DL模型的训练。在此基础上，Alpa为大规模模型并行执行计划构建了一个新的分层空间。Alpa设计了许多编译通道，以便在每个并行级别自动派生有效的并行执行计划。Alpa实现了一个高效的运行时来协调分布式计算设备上的两级并行执行。我们的评估表明，Alpa生成的并行化计划可以匹配或优于手动调整的模型并行训练系统，甚至在它们设计的模型上也是如此。与专门的系统不同，Alpa还泛化到具有异构体系结构的模型和没有手动设计计划的模型。</p>
+<ol>
+<li>通过inter-op pass将计算图分割为子图，设备集群分割为device mesh，并寻找将子图分配给device mesh的最佳方式。</li>
+<li>通过intra-op pass为inter-op pass找到每个流水线阶段的子图-device mesh的最佳并行方案</li>
+<li>运行时编排 生成静态指令，按照顺序排列计算和通信操作，并启动设备集群上的分布式计算图推理。</li>
+</ol>
+<span id="more"></span>
+
+<h2 id="出发点"><a href="#出发点" class="headerlink" title="出发点"></a>出发点</h2><p><img src="/images/Alpa/inter-op_intra-op.png"></p>
+<h2 id="创新点"><a href="#创新点" class="headerlink" title="创新点"></a>创新点</h2><p>在两个层级上进行分布式并行执行策略：intra-op 和 inter-op ，并且这两种策略可以混合使用。</p>
+<ul>
+<li>intra-op的并行&lt;个人理解为算子内的并行&gt;，通过整数线性规划(ILP)来最小化执行成本，将其算子内的并行策略分配到分布式设备中的不同网格(mesh)，并返回其最小的执行成本给inter-op并行过程。</li>
+<li>inter-op的并行&lt;个人理解为算子间的并行&gt;，将模型分割放在分布式设备中的不同网格(mesh)中执行，在该过程中通过DP来最小化不同设备通信的latency成本，最终确定最佳的分布式策略。</li>
+</ul>
+<p>以下为这两点的基础示意图<br><img src="/images/Alpa/inter-op_intra-op.png"></p>
+<h3 id="device-mesh概念"><a href="#device-mesh概念" class="headerlink" title="device mesh概念"></a>device mesh概念</h3><p>是将一组物理设备视作2D的逻辑设备。每个设备(x,y)都可以沿着这两个维度以不同的带宽进行通信。假设不同组的设备沿着同一个维度进行通信时具备同样的性能。device mesh可以由节点和GPU灵活组成，例如2个节点，每个节点8个GPU，通过inter-op pass可以将其组成2x8，1x16，4x4，8x2的device mesh，而不会局限于单个节点，这些不同的组合方式会导致不同的设备通信代价&lt;意味着同一个mesh中可能存在跨节点的设备，这就相比与同一个节点设备有更高的通信成本&gt;，后续也会通过inter-op pass 来优化物理设备和逻辑device mesh的映射。</p>
+<h3 id="4-Intra-op-并行"><a href="#4-Intra-op-并行" class="headerlink" title="4. Intra-op 并行"></a>4. Intra-op 并行</h3><p>在所给的device mesh上，最小化执行计算子图的算子内并行成本。根据工作负载的分配，不同的mesh可能会有不同数量的计算设备。<br>采用SPMD风格的算子内并行，认为单个device mesh中所有的设备都有等效的计算能力，将所有计算平均分配到所有的设备上，执行相同的指令。 平均分配的方式减少了分布策略的搜索空间，更加方便的表示数据并行，算子并行等策略。这种方式与Tofu和FlexFlow(自动算子并行)不同。与FlexFlow采用的随机搜索和Tofu采用的假设线性不同的是，Alpa采用ILP来求解具有数万个运算符的模型。</p>
+<h4 id="算子内并行空间"><a href="#算子内并行空间" class="headerlink" title="算子内并行空间"></a>算子内并行空间</h4><p>对于计算图上的一个算子，在mesh上可能有多种并行算法。</p>
+<p>$$<br>C_{ij} &#x3D; \sum_kA_{ik}*B_{kj}<br>$$</p>
+<p>对于矩阵乘来说，并行可以在ijk任意维度，或者[跨设备并行化ijk的组合?]，不同的方式就会有不同的计算和通信成本，不同的方式也都要求输入tensor有不同的layout，也导致输出tensor有不同的layout。如果输入的layout和并行方式需求的layout存在差异，那么久需要额外的转换，这也进一步增加通信开销。intra-op pass的目的就是给每个算子选择一个并行策略，来让整个图的执行时间最小。</p>
+<h4 id="Sharding-Spec"><a href="#Sharding-Spec" class="headerlink" title="Sharding Spec"></a>Sharding Spec</h4><p>分片规范<br><img src="/images/Alpa/Sharding%20Spec.png"><br>上面这个表格是一组Sharding Spec，用于描述一个tensor的不同layout，对于一个N-D的tensor来说，他的Sharding Spec会被定义为 $X_0X_1…X_{n-1}，X\in {S,R}$ ,  <code>S</code>表示切分，<code>R</code>表示复制。Table 1.中最左侧就是可选择的layout，$S^0$ 表示在mesh的第一个维度进行切分，$S^{01}$表示在mesh的两个维度都进行切分，Spec中的两个字母表示tensor的两个维度的sharding策略。</p>
+<h4 id="Resharding"><a href="#Resharding" class="headerlink" title="Resharding"></a>Resharding</h4><p><img src="/images/Alpa/Resharding.png"><br>当一个算子的输入tensor layout不满足当前为该算子选择的并行策略，且这个并行策略可能会有跨设备的通信，就需要加入 <code>resharding</code>这个layout转换。表格2. 就是几个resharding的例子。例如，a)要将一个全复制的tensor转换成其他的sharding spec时(case 1) ，可以在不通信的情况下局部切分tensor；b)交换切分轴(case 4)，需要使用all-to-all的通信源语了，详见<a href="source/_posts/Communication_primitives.md">Communication_primitives</a>。</p>
+<h4 id="算子的并行算法"><a href="#算子的并行算法" class="headerlink" title="算子的并行算法"></a>算子的并行算法</h4><p>结合以上内容，考虑在2D的mesh上将一个3D矩阵乘$C_{b,i,j}&#x3D;\Sigma_kA_{b,i,k}B_{b,k,j}$ 并行化。表3. 列出了几种算子内并行策略<br><img src="/images/Alpa/parallel_algo_for_3D_matmul.png"><br>最左侧一列表示将哪个维度进行并行，0和1 表示并行于mesh哪个维度。此外例如conv和reduction也可以通过分析其数学表达式来得到类似的所有可并行策略。Alpa中使用XLA的HLO作为基础算子，(为啥是XLA呢，因为算子少，工作量少 :-) )</p>
+<h4 id="ILP-公式"><a href="#ILP-公式" class="headerlink" title="ILP 公式"></a>ILP 公式</h4><p>一个计算图$G&#x3D;(V,E)$全部的执行开销包含：所有算子$v\in V$的计算开销、通信开销以及所有路径$e\in E$的resharding开销。<br>这里将成本最小化表述为ILP，并通过一个现成的求解其进行最优求解。以下是论文，后续再看。</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="http://www.decom.ufop.br/haroldo/proglinear/files/cbcUserGuide.pdf">http://www.decom.ufop.br/haroldo/proglinear/files/cbcUserGuide.pdf</a></p>
+</blockquote>
+<p>对于一个算子$v$, 可能存在的并行策略数量是$k_v$ ，有一个通信开销向量$c_v$ 长度为$k_v$ ，或者可以描述为 $c_{v}\in \Bbb{R}^{k_v}$  &lt;长度为$k_v$的实数向量空间&gt;，$c_{vi}$表示第i个策略的通信开销。类似的，计算开销向量表示为$d_{v}\in \Bbb{R}^{k_v}$ 。同时有一个决策向量$s_{v\in}{0,1}^{k_v}$  来表示那个策略被使用， $s_{vi}&#x3D;1$ 表示我们给算子$v$选择了第i个并行策略。对于算子$v,u$之间的Resharding开销来说，定义了一个矩阵 $R_{vu} \in \Bbb{R}^{k_v×k_u}$ ，$R_{vuij}$表示算子$v$的第i个并行策略的输出到算子$u$的第$j$个并行策略的输入的Resharding开销<br>目标函数如下:</p>
+<p>$$<br>\min_s \sum_{v \in V} s_v^\top (c_v + d_v) + \sum_{(v, u) \in E} s_v^\top R_{vu} s_u\tag{1}<br>$$</p>
+<p>前一部分是算子$v$的计算开销和通信开销，后面一部分是从算子$v$到算子$u$ 的resharding开销。在上面这个公式中$s$是变量，其余都是常量值。第二部分是二次方程式，所以无法使用ILP求解器。这里通过引入一个新的决策向量$e_{vu}&#x3D;{0,1}^{k_v·k_u}$将其线性化，这个向量表示算子$v,u$之间的resharding决策。新的公式如下：</p>
+<p>$$<br>\min_s \sum_{v \in V} s_v^\top (c_v + d_v) + \sum_{(v, u) \in E} R_{vu}e_{vu}\tag{1}<br>$$</p>
+<p>虽然可以通过分析来获得上面三个常量的准确成本，但是为了简单起见，采用了以下方法来评估它们。</p>
+<ol>
+<li>用通信字节数并除以mesh维度带宽来得到通信开销$d_{v}、R_{vu}$</li>
+<li>将所有的计算开销设置为0，动机与<a target="_blank" rel="noopener" href="https://arxiv.org/abs/1807.08887">https://arxiv.org/abs/1807.08887</a> 一致，<ul>
+<li><input disabled="" type="checkbox"> 具体原因需要阅读该论文</li>
+</ul>
+</li>
+</ol>
+<p>之所以进行这样的简化是因为：</p>
+<ol>
+<li>对于计算量很高的算子，例如matmul，不允许在重复计算。所有的并行策略总是会把所有的工作都分配到所有的设备上，所以一个算子所有的并行策略都会具有相同的算数复杂度。</li>
+<li>对于计算量不高的算子，例如element-wise，允许复制操作，但是它们的计算开销可以忽略不计。<br>为了简化计算图，将计算量极少的算子进行融合，比如element-wise、transpose、reduction等，将这些算子融合到计算图的其他算子中，并将目标算子的sharding spec进行传播，从而使这些计算量很少的算子尽可能的隐藏到其他算子庞大的计算开销、通信开销中。这种方式极大的减少了计算图中算子的数量，从而减少了ILP问题的大小。通过广度优先遍历的方式来计算每个算子的深度，然后将这些计算量少的算子尽可能的融合到最深的算子里。<br>一旦并行策略被ILP决定，就会应用一系列post-ILP通信优化，就比如在合适的情况下将all-reduce操作用reduce-scatter和all-gather取代，因为后者减少了复制tensor的数量和相应的计算量，同时保持通信量不变，这也达到了与权重sharding或者ZrRO优化其一样的效果。</li>
+</ol>
+<h3 id="5-Inter-op-并行"><a href="#5-Inter-op-并行" class="headerlink" title="5. Inter-op 并行"></a>5. Inter-op 并行</h3><p>在最小化算子间并行的延迟问题上，主要考虑如何切分模型和device cluster到每个阶段和mesh，以及如何将他们映射成stage-mesh对。优化的目标是最小化整个计算图端到端pipeline的执行延迟，[17，33] 论文中已经考虑了一些简单的问题，例如假设每个阶段的设备是预先分配好的，并且所有阶段都是有固定的数据或者算子并行策略。Apla中通过联合考虑device mesh的分配和每个阶段存在不同的算子内并行策略舍弃了这些假设。</p>
+<h4 id="算子间并行策略的搜索空间"><a href="#算子间并行策略的搜索空间" class="headerlink" title="算子间并行策略的搜索空间"></a>算子间并行策略的搜索空间</h4><p>假设计算图中包含了一个算子序列，并且具备图一样的拓扑顺序，标记为$o_1,o_2…o_k$ ，其中操作$o_k$的输入来自$o_1,…,o_{k-1}$。将其切分为S个阶段$s_1,s_2,…,s_S$ ，每个阶段都有一些算子组成$O_{l_i},…,O_{r_i}$ ,并且将每个阶段$S_i$分配到一个大小的$n_i×m_i$的子mesh上，子mesh是从包含deivce的计算机集群中切分出来的，这个计算机集群标记为带有形状为$N×M$的cluster mesh。让$t_{i}&#x3D; t_{intra}(s_i,Mesh(n_i,m_i))$ 作为执行$s_i$ 阶段在大小为$n_i*m_i$的子mesh上执行的延迟，这是通过ILP得出的最小延迟，由intra-op pass中返回给inter-op pass。<br><img src="/images/Alpa/latency%20of%20a%20pipeline.png"></p>
+<blockquote>
+<p>Curio：上图中abcd..表示一个输入的不同batch，stage表示子图和device mesh的组合，时间表示每个stage执行一个batch的时间开销。总体的延迟就是最耗时的子图的所有batch的计算时间加上一个batch的其他子图的执行时间(其他batch的其他子图执行的时间就被掩盖到最耗时的子图执行时间中，这部分的计算中主要是取决于子图-device mesh的划分，尽可能将数据依赖和子图的执行时间开销平衡)</p>
+</blockquote>
+<p>如图所示，假设有B个不同的输入微batch，对于整个计算图的最小延迟可以表示为如下公式。</p>
+<p>$$<br>T^{*} &#x3D; \min_{\substack{s_1,…,s_S \ (n_1,m_1),…,(n_S,m_S)}}<br>\left { \sum^S_{i&#x3D;1} t_i + (B-1) \cdot \max_{1\leq j\leq S}{t_j} \right } \tag{2}<br>$$</p>
+<p>总延迟包含两个部分：第一部分是所有阶段的总延迟，解释为第一个微batch通过整个流程的延迟；第二部分是剩余$B-1$个微batch的执行时间，该时间由最慢的阶段所限制，如上图中的第三阶段。<br>目标是解决上述带有两个约束的公式：1）对于计算图前向传播的算子，我们想要将其与对应的反向算子放在同一个子mesh上。因为反向传播通常使用一系列与正向传播相似的tensor，这有效地减少从前向传播中获取所需的tensor到反向传播阶段的通信量。使用前向和后向的延迟之和作为$t_{intra}$ ，所以公式2反映了总体的延迟，包括了前向和后向。2）需要已经切分的子mesh能够完全地覆盖$N×M$的集群mesh——不浪费任何计算设备资源。接下来详细说明DP公式。</p>
+<h4 id="DP-公式"><a href="#DP-公式" class="headerlink" title="DP 公式"></a>DP 公式</h4><p>为了确保所有的子mesh能够完整的覆盖$N×M$的mesh集群，将可用的子mesh的形状转化为两种类型：<br>1）1D的子mesh，形状为$(1,1),(1,2),(1,4),…(1,2^m)$ ；<br>2）2D的子mesh，形状为$(2,M),(3,M),…,(N,M)$，这种方式充分地利用了mesh集群的第二个维度（例如，在一个GPU集群中，这意味着每一个物理机器充分使用所有的计算设备）；<br>具体的定理证明见附录A，表明了这些特定的子mesh能够始终完全覆盖mesh集群。<br>为了将集群中的物理设备分配给DP算子找到的结果子mesh，分配设备时按照从大尺寸mesh到小尺寸的策略，即优先为较大的子mesh分配设备，然后再分配给小的子mesh。</p>
+<blockquote>
+<p>&lt;这样的分配逻辑有助于充分利用高性能的通信链路，因为在大型子网格中，设备间的通信往往更为高效。这是因为大型子网格可能横跨多台物理机器，而这些机器之间的数据传输速度通常高于单台机器内部设备间的传输速度。？？？？源自LLM的解释&gt;</p>
+</blockquote>
+<p>当有多个相同大小子mesh的pipeline阶段时，倾向于将相邻的pipeline阶段放的更近，从而减少通信延迟。</p>
+<blockquote>
+<p>–&#x3D;&#x3D;剪枝的策略&#x3D;&#x3D;–<br>对于一系列子mesh，$n&gt;1 and m&lt;M$ 的组合配剔除集合中，这些组合有着较差的表现，因为作为可选的子mesh$(n^{’},M)$具有更多可以用高带宽进行通信的设备，这种简化中只需要确保$\sum_{i&#x3D;1}^{S} {n_i·m_i&#x3D;N·M}$</p>
+</blockquote>
+<p>为了求解公式2的$T^*$ ，这里开发了一个动态规划算法。<br>首先枚举了第二项$t_{max}&#x3D;max_{1\le j\le S}t_j$ 并且对于每个不同的$t_{max}$最小化第一项$t_{total}(t_{max})&#x3D;\sum_{1&lt;&#x3D;i&lt;&#x3D;S} {t_i}$ ，具体来说，当将算子$o_k$使用函数$F(s,k,d;t_{max})$ 来表示把从第$k$个算子到最后的算子序列切分为$s$个阶段后，分配到$d$个设备上的最小总延迟，任何一个阶段的延迟都不超过$t_{max}$ 。开始时设置$F(0,K+1,0;t_{max})&#x3D;0$ ，推导出F的最优子结构为：</p>
+<p>$$<br>F(s,k,d; t_{\max}) &#x3D; \min_{\substack{k \leq i \leq K \ n_s \cdot m_s \leq d}}<br>\begin{cases}<br>t_{\text{intra}}((o_k, …, o_i), \text{Mesh}(n_s, m_s), s) \</p>
+<ul>
+<li>F(s-1, i+1, d-n_s \cdot m_s; t_{\max}) \<br>| t_{\text{intra}}((o_k, …, o_i), \text{Mesh}(n_s, m_s), s) \leq t_{\max}<br>\end{cases} \tag{3}<br>$$</li>
+</ul>
+<p>并推导出最佳总延迟为:</p>
+<p>$$<br>T^*(t_{max})&#x3D;\min_{s}{F(s,0,N \cdot M; t_{max})}+(B-1)\cdot t_{max} \tag{4}<br>$$</p>
+<p>其中$t_{intra}((o_k,…,o_i),Mesh(n_s,m_s),s)$是由intra-op pass来决定的，这是$s$子序列阶段在$Mesh(n_s,m_s)$上执行子图$(o_k,…o_i)$的最低延迟。这个Mesh是一系列物理设备，因此枚举出所有逻辑mesh潜在的shape可能性，并通过intra-op pass查询子图、当前mesh和子图的输入的来自其他intra-op 的设置，并得到一个intra-op的计划。<br>之后按照这个计划和其他的一些low-level编译器优化(fusion,mem)来编译这个子图，得到一个可执行文件来进行精确的分析。这个可执行程序是为了获取这个stage的延迟和每个设备上执行这个阶段所需要的mem，以及保存中间结果所需要的mem。之后根据所选择的pipeline执行计划来检查这个需要的mem是否与设备的mem合适，这里存在一个约束：</p>
+<p>$$<br>mem_{stage}+s \cdot mem_{act} \leq mem_{device} \tag{5}<br>$$</p>
+<p>也就是说执行这个stage需要的内存加上保存中间结果的内存必须小于设备内存(显而易见的约束，不然多出来的放到设备外？增加通信代价，得不偿失)，选择一个满足最小延迟同时满足设备mem的逻辑mesh，如果都不满足，就把$t_{intra}$置0。<br>这个DP算法是基于TeraPipe的，然而TeraPipe中假设所有pipeline stage都是相同的，并且目标是找到一个最优的方式将带Batch的输入token组织成大小不同的微batch。alpa的目标是将计算图的算子划分成不同的组，放到不同的pipeline stages，是在假设所有微batch都有相同的大小。此外alpa用DP算法在inter-op pass中优化每个stage pipeline 的mesh shape。</p>
+<ul>
+<li><input disabled="" type="checkbox"> TeraPipe论文阅读</li>
+</ul>
+<h5 id="复杂度"><a href="#复杂度" class="headerlink" title="复杂度"></a>复杂度</h5><p>在$O(K^3NM(X+log(M)))$ 的时间内计算固定$t_{max}$的切分。$t_{max}$最多有$O(K^2(N+log(M)))$ 种选择:$t_{intra}((o_i,…,o_j),Mesh(n_s,m_s))for\ i,j&#x3D;1,…,k$ 和所有子mesh选择。因此总的复杂度是$O(K^5NM(N+log(M))^2)$ 。这个时间复杂度对于大的计算图(超过1W个算子)来说并不可行。为了加速DP，做以下实用的优化</p>
+<h5 id="early-pruning"><a href="#early-pruning" class="headerlink" title="early pruning"></a>early pruning</h5><p>提前剪枝，<br>1）递增枚举：方法类似于TeraPipe，将$t_{max}$从小到大列举，<br>2）当$B·t_{max}$大于当前最优的$T^<em>$，立刻停止枚举。这是因为较大的$t_{max}$无法提供一个更好的解决方案。<br>3）同样，在枚举$t_{max}$的时候，每次只评估比上一个$t_{max}$大至少ε的. 虽然找到的解决方案不一定是最优的，但是全局最优条件的差距最大为$B</em>ε$ 。 按照经验设定$ε&#x3D;10^{-6}s$ ，实验中该算法找到的方案基本上和最优解一致。</p>
+<h5 id="运算符聚类"><a href="#运算符聚类" class="headerlink" title="运算符聚类"></a>运算符聚类</h5><p>计算图上的很多算子并不是计算密集的，这些算子的确切位置对总体执行的时间影响很小。这里开发了另一个DP算法来聚类相邻的算子，从而减少计算图的大小。将K个算子聚类成L层，L是远小于K的。 这个算法的目的是将两种类型的算子合并：1）不会调用大量的计算，但是会增加计算图的长度；2）相邻的算子如果放在不同的设备上可能会产生实质性的通信。定义函数$G(k,r)$ 作为聚类算子$(o_1,…o_k)$时划分到聚类层r时接收的最大数据量的最小值。最优子结构如下</p>
+<p>$$<br>G(k,r) &#x3D;<br>\min_{1&lt;&#x3D;i&lt;&#x3D;k}<br>\begin{cases}<br>max{G(i-1,r-1),C(i,k)}\atop|FLOP(o_i,…,o_k)&lt;&#x3D;\frac{(1+\delta)FLOP_{total}}{L}<br>\end{cases}<br>$$</p>
+<p>其中$C(i，k)$ 表示从$(o_1,…o_{i-1})$到$(o_i,…o_k)$的输入数据总量，$FLOP_{total}$表示整个计算图的FLOP。确保每个聚类层的FLOP都是在 1 + δ乘以每层平均FLOP之内的同时，也最小化了个层间FLOP的方差，从而达到更加均匀的结构分布。对于通信成本相同的方案，我们选择结构最均匀的一个，同事最小化每层FLOP的方差。通过这个DP算法，我们可以在$O(K^2L)$的时间内算出最优的层聚类。 $L$是算法的超参数，根据经验我们基于设备数量和计算图中计算量大的算子数量选择一个小的$L$。其实这个选择对于最终性能并不会有跟明显的影响。</p>
+<h5 id="算法描述"><a href="#算法描述" class="headerlink" title="算法描述"></a>算法描述</h5><p>Inter-op pass总结<br>输入：计算图G , 集群C {with shape (N,M)}<br>输出：最小的执行延迟 $T^*$</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 计算图前处理</span></span><br><span class="line"><span class="number">1.</span> 序列化模型</span><br><span class="line">   (o_1,...,o_k) = Flatten(G)</span><br><span class="line"><span class="number">2.</span> 算子层聚类</span><br><span class="line">   (l_1,...,l_L) = OperatorClustering(o_1,...,o_K)</span><br><span class="line"><span class="comment"># 执行intra-op pass，获取不同stage-mesh组合</span></span><br><span class="line">submesh_shapes = &#123;(<span class="number">1</span>,<span class="number">1</span>),(<span class="number">1</span>,<span class="number">2</span>),(<span class="number">1</span>,<span class="number">4</span>),...,(<span class="number">1</span>,M)&#125;∪&#123;(<span class="number">2</span>,M),(<span class="number">3</span>,M),...,(N,M)&#125;</span><br><span class="line"><span class="keyword">for</span> <span class="number">1</span>&lt;=i&lt;=j&lt;=L :</span><br><span class="line">	stage = (l_i,...l_L)</span><br><span class="line">	<span class="keyword">for</span> (n,m) <span class="keyword">in</span> submesh_shapes:</span><br><span class="line">		<span class="comment"># 初始化所有intra-op阶段的</span></span><br><span class="line">		<span class="keyword">for</span> s <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">1</span>,L):</span><br><span class="line">			t_intra(stage, Mesh(n, m), s) = INF</span><br><span class="line">		<span class="keyword">for</span> (n_l,m_l),opt <span class="keyword">in</span> LogicalMeshShapeAndIntraOpOptions(n,m):</span><br><span class="line">			plan = IntraOpPass(stage, Mesh(n_l,m_l),opt)</span><br><span class="line">			t_l,mem_stage,mem_act = Profile(plan)</span><br><span class="line">			<span class="keyword">for</span> s 满足公式<span class="number">5</span> <span class="comment"># mem_stage + s · mem_act ≤ mem_device .</span></span><br><span class="line">				<span class="keyword">if</span> t_l &lt;= t_intra(stage, Mesh(n, m), s):</span><br><span class="line">					t_intra(stage, Mesh(n, m), s) = t_l</span><br><span class="line"><span class="keyword">return</span> t_l</span><br><span class="line"></span><br><span class="line"><span class="comment"># inter-op pass （DP）</span></span><br><span class="line">T* = INF</span><br><span class="line"><span class="keyword">for</span> t_max <span class="keyword">in</span> SortedAndFilter(t_intra, ε):</span><br><span class="line">	<span class="keyword">if</span> B·t_max &gt;= T*:</span><br><span class="line">		<span class="keyword">break</span></span><br><span class="line">	F(<span class="number">0</span>,L+<span class="number">1</span>,<span class="number">0</span>; t_max) = <span class="number">0</span></span><br><span class="line">	<span class="keyword">for</span> s <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">1</span>,L):</span><br><span class="line">		<span class="keyword">for</span> l <span class="keyword">in</span> <span class="built_in">range</span>(L,<span class="number">1</span>):</span><br><span class="line">			<span class="keyword">for</span> d <span class="keyword">in</span> <span class="built_in">range</span> (<span class="number">1</span>,N*M):</span><br><span class="line">				Compute F(s,l,d; t_max) 按照公式<span class="number">3</span></span><br><span class="line">	T*(t_max) = min_s&#123;F(s,<span class="number">0</span>,N·M;t_max)&#125;+(B−<span class="number">1</span>)·t_max</span><br><span class="line">	<span class="keyword">if</span> T*(t_max) &lt; T*:</span><br><span class="line">		T* = T*(t_max)</span><br><span class="line"><span class="keyword">return</span> T*</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-Parallelism-Orchestration并行编排"><a href="#6-Parallelism-Orchestration并行编排" class="headerlink" title="6. Parallelism Orchestration并行编排"></a>6. Parallelism Orchestration并行编排</h3><p>当Stages，device mesh的分配决定以后，在intra-op pass阶段，Alpa遵循ILP求解器得出的intra-op并行计划，根据分配给它的device mesh编译每个阶段。编译依赖于XLA和GSPMD，并生成每个stage-mesh的并行可执行程序。当需要时，编译会自动插入第四节中提到的通信源语来处理算子内并行所需要的resharding。<br>在inter-op pass阶段，Alpa实现了一个额外的并行编排pass来处理跨mesh的stage间通信，并为算子间并行执行生成静态指令。</p>
+<h4 id="跨mesh的Resharding"><a href="#跨mesh的Resharding" class="headerlink" title="跨mesh的Resharding"></a>跨mesh的Resharding</h4><p><img src="/images/Alpa/cross-mesh%20resharding.png"><br>现存的手动系统，就像Megatron-LM，约束所有的pipeline stage都有相同的数据和tensor模型并行度，因此pipeline stage之间的通信通常通过两个等效设备网格的对应设备之间的P2P发送&#x2F;接收来实现(图6a)。在Alpa中包含两个相邻stage的device mesh可能有不同的mesh shape，并且tensor在两个stage之间的通信可能有着不同的sharding spec(图6b&#x2F;c)，这里称这种通信模式为cross-mesh resharding，这是一个多对多的多点传送问题。<br>给定tensor在发送和接收方的mesh上的sharding spec， Alpa在两次迭代中生成一个用于解决 <code>corss-mesh sharding</code> 的通信方案。第一次迭代中，计算在源mesh和目标mesh之间tensor tile的对应关系。基于此，生成源设备和目标设备之间的P2P发送&#x2F;接收源语来实现通信。然后，第二次迭代中来识别目标tensor在其sharding spec中存在复制的机会。在这种情况下tensor只需要在mesh之间传输一次，之后利用目标mesh上利用更高的带宽通过 <code>all-gather</code>来完成交换–这会重写第一次迭代中生成的发送&#x2F;接收，避免重复通信。<br>称这种方法为 <code>local all-gather</code>跨设备resharding。因为在Alpa的设计中stage之间的通信通常都很小，实验符合设计的期望，后续还会开发更优的跨设备resharding策略。</p>
+<h4 id="生成可执行指令"><a href="#生成可执行指令" class="headerlink" title="生成可执行指令"></a>生成可执行指令</h4><p>最后一步，Alpa生成静态执行指令在集群上启动训练，因为每个stage都有不同的算子集合，并且在放在有不同shape 的mesh上 （与很多APMD 并行训练系统不同），Alpa采用MPMD风格的runtime来安排算子间并行执行–Alpa生成确定的静态执行指令给每一个device mesh。<br>Alpa给算子间并行执行开发了一系列指令，包括stage内tensor的内存分配和释放指令，按照cross-mesh resharding方案在stage间的tensor通信指令，同步指令和计算指令等。。。根据用户选择的pipeline schedule，Alpa使用一个驱动进程提前生成指令，并在执行之前整个指令列表分发给每个worker，避免了运行时的驱动和worker之间协调的开销。</p>
+<h3 id="7-限制和讨论"><a href="#7-限制和讨论" class="headerlink" title="7. 限制和讨论"></a>7. 限制和讨论</h3><p>相比于现有的一些手动组合数据、算子、和pipeline并行(比如3D-parallelism [45]和PTD-P[40])，Alpa对inter-op、intra-op并行性的分层视图显著的提高了他们的三个主要灵活性：1）stage可以包含不均匀数量的算子和层；2）stages可能被映射到不同shape的device mesh上；3）在每个stage中，数据和算子并行结构配置对于每个算子来说都是单独定制的。综上，是的Alpa能够整合所有现存的模型并行方法并推广到具有更多异构性的模型结构和集群设置。<br>抛开这些改进，Alpa的优化算法目前还是存在一些限制：</p>
+<ul>
+<li>并没有对不同stage的通信成本进行建模，因为cross-stage的通信成本本来就很小。但是实际上在DP或者ILP中对cost进行建模都是可行的，但是会需要枚举更多矢量的intra-op pass和DP状态。</li>
+<li>inter-op pass目前有一个超参数：微batch $B$，目前的公式中并没有被优化，但是可以通过枚举的方式进行搜索。</li>
+<li>inter-op pass用静态线性schedule建模pipeline的并行结构，而没有考虑更多动态schedule，例如在不同的deivce上并行计算图中的不同分支</li>
+<li>对于overlap计算和通信并没有优化一个最好的方案，Alpa值能处理静态计算图，所有tensor的shape编译时已知。<br>尽管如此，Alpa都是可以将现在一些常见的模型生成出接近最优的执行方案。</li>
+</ul>
+<h2 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h2><h3 id="关于算子聚类的疑惑解释"><a href="#关于算子聚类的疑惑解释" class="headerlink" title="关于算子聚类的疑惑解释"></a>关于算子聚类的疑惑解释</h3><p>在Alpa论文中的动态规划（DP）公式里，递推关系中取两部分的最大值的原因是为了确保负载均衡和计算效率。这种方法有助于找到一个平衡点，使得每个阶段（或者子任务）的最大开销最小化，从而实现整体优化。</p>
+<h3 id="公式回顾"><a href="#公式回顾" class="headerlink" title="公式回顾"></a>公式回顾</h3><p>公式如下：</p>
+<p>$$<br>G(k,r) &#x3D; <br>\min_{1 \leq i \leq k}<br>\begin{cases}<br>\max{G(i-1,r-1), C(i,k)} &amp; \text{| } FLOP(o_i, \ldots, o_k) \leq \frac{(1+\delta)FLOP_{total}}{L}<br>\end{cases}<br>$$</p>
+<h3 id="解释"><a href="#解释" class="headerlink" title="解释"></a>解释</h3><ul>
+<li><strong>( G(k, r) )</strong>：表示将前 (k) 个算子分成 (r) 个阶段时的最小成本。</li>
+<li><strong>递推关系</strong>：$\min_{1 \leq i \leq k} { \max{G(i-1, r-1), C(i, k)} }$</li>
+</ul>
+<h3 id="为什么要取最大值"><a href="#为什么要取最大值" class="headerlink" title="为什么要取最大值"></a>为什么要取最大值</h3><ul>
+<li><strong>最大值的含义</strong>：在每个划分点 (i)，我们计算两部分的最大值：<ol>
+<li>G(i-1, r-1) ：前 (i-1) 个算子分成 (r-1) 个阶段的最小成本。</li>
+<li>( C(i, k) )：从第 (i) 个算子到第 (k) 个算子的聚类成本。</li>
+</ol>
+</li>
+<li><strong>最大值的目的是为了确保最坏情况下的开销最小化</strong>：<ul>
+<li>在分布式计算中，如果某一个阶段的计算开销特别大，它将成为整个系统的瓶颈，导致整体性能下降。</li>
+<li>通过取两部分中的最大值，公式确保即使在最坏情况下（即某一阶段的开销最大），整体方案依然是最优的。这种策略有效地平衡了各个阶段的负载，避免单点过载。</li>
+</ul>
+</li>
+</ul>
+<h3 id="为什么要取最小值"><a href="#为什么要取最小值" class="headerlink" title="为什么要取最小值"></a>为什么要取最小值</h3><ul>
+<li><strong>最小值的含义</strong>：在所有可能的划分点 (i) 中，选择使得最大值最小的那个划分点。</li>
+<li><strong>最小值的目的是找到全局最优解</strong>：<ul>
+<li>动态规划通过递推关系逐步寻找全局最优解。在每一步中，选择最优的划分点，以确保整体开销最小。</li>
+<li>通过在所有可能的 (i) 中取最小值，公式确保选择的划分点能够使整体计算开销最小化。</li>
+</ul>
+</li>
+</ul>
+<h3 id="负载均衡与效率优化"><a href="#负载均衡与效率优化" class="headerlink" title="负载均衡与效率优化"></a>负载均衡与效率优化</h3><ol>
+<li><p><strong>负载均衡</strong>：</p>
+<ul>
+<li>分布式系统中，负载均衡至关重要。均衡的负载分布可以避免某些设备过载，从而提高整体系统的效率。</li>
+<li>通过限制每个阶段的FLOP数，并取最大值来衡量最坏情况下的开销，公式确保每个设备的计算任务不会超过其承受能力。</li>
+</ul>
+</li>
+<li><p><strong>效率优化</strong>：</p>
+<ul>
+<li>通过动态规划逐步优化，从而找到整体计算开销最小的方案。</li>
+<li>在每一步中选择使得当前阶段最优的划分点，确保最终得到的划分方案是全局最优的。</li>
+</ul>
+</li>
+</ol>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>在Alpa论文中的DP公式里，取两部分的最大值是为了确保分布式计算的负载均衡和效率优化。这种方法通过考虑最坏情况下的开销，避免了单点过载，从而提升了整体系统的性能和稳定性。最终通过在所有可能的划分点中取最小值，公式实现了全局最优的算子聚类和任务分配方案。</p>
+</article>
+<div class="article-footer">
+    <section id="license">
+      <div class="header"><span>License</span></div>
+      <div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div>
+    </section>
+    
+
+
+    <section id="share">
+      <div class="header"><span>Share</span></div>
+      <div class="body">
+        <div class="link"><input class="copy-area" readonly="true" id="copy-link" value="https://curioyang.top/paper/Alpa/" /></div>
+        <div class="social-wrap dis-select"><a class="social share-item wechat" onclick="util.toggle(&quot;qrcode-wechat&quot;)"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/b32ef3da1162a.svg" /></a><a class="social share-item weibo" target="_blank" rel="external nofollow noopener noreferrer" href="https://service.weibo.com/share/share.php?url=https://curioyang.top/paper/Alpa/&title=Alpa论文阅读 - Curio.OoO&summary=论文链接：[https://www.usenix.org/conference/osdi22/presentation/zheng-lianmin]
+内容简介Alpa通过生成统一数据、操作符和管道并行性的执行计划，自动化大型深度学习(..."><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/80c07e4dbb303.svg" /></a><a class="social share-item email" href="mailto:?subject=Alpa论文阅读 - Curio.OoO&amp;body=https://curioyang.top/paper/Alpa/"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/a1b00e20f425d.svg" /></a><a class="social share-item link" onclick="util.copy(&quot;copy-link&quot;, &quot;Copied!&quot;)"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/8411ed322ced6.svg" /></a></div>
+        
+        <div class="qrcode" id="qrcode-wechat" style="opacity:0;height:0">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=https://curioyang.top/paper/Alpa/"/>
+        </div>
+        
+      </div>
+    </section>
+    </div>
+
+<div class="related-wrap" id="read-next"><section class="body"><div class="item" id="prev"><div class="note">Newer</div><a href="/tech/after-main-function/">全局函数</a></div><div class="item" id="next"><div class="note">Older</div><a href="/tech/perftools/">gperf 使用</a></div></section></div>
+
+
+
+
+  <div class="related-wrap md-text" id="comments">
+    <section class='header cmt-title cap theme'>
+      <p>快来参与讨论吧~</p>
+
+    </section>
+    <section class='body cmt-body giscus'>
+      
+
+<svg class="loading" style="vertical-align:middle;fill:currentColor;overflow:hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="giscus" src="https://giscus.app/client.js" data-repo="curioyang/curio.github.io" data-repo-id="R_kgDOKuCPNA" data-category="Announcements" data-category-id="DIC_kwDOKuCPNM4CcUmT" data-mapping="url" data-strict="0" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="bottom" data-theme="catppuccin_frappe" data-lang="zh-CN" crossorigin="anonymous"></div>
+
+    </section>
+  </div>
+
+
+
+<footer class="page-footer footnote"><hr><div class="text"><p>本站由 <a href="/">Curio Yang</a> 使用 <a target="_blank" rel="noopener" href="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.33.1">Stellar 1.33.1</a> 主题创建。<br>本博客所有文章除特别声明外，均采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> 许可协议，转载请注明出处。<br><span id="busuanzi_container_site_pv">本站总访问量<span id="busuanzi_value_site_pv"></span>次</span></p>
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+</div></footer>
+<div class="main-mask" onclick="sidebar.dismiss()"></div></div><aside class="l_right">
+<div class="widgets">
+
+
+
+<widget class="widget-wrapper toc" id="data-toc" collapse="false"><div class="widget-header dis-select"><span class="name">On This Page</span><a class="cap-action" onclick="sidebar.toggleTOC()" ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></a></div><div class="widget-body"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E5%AE%B9%E7%AE%80%E4%BB%8B"><span class="toc-text">内容简介</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%87%BA%E5%8F%91%E7%82%B9"><span class="toc-text">出发点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E6%96%B0%E7%82%B9"><span class="toc-text">创新点</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#device-mesh%E6%A6%82%E5%BF%B5"><span class="toc-text">device mesh概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-Intra-op-%E5%B9%B6%E8%A1%8C"><span class="toc-text">4. Intra-op 并行</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AE%97%E5%AD%90%E5%86%85%E5%B9%B6%E8%A1%8C%E7%A9%BA%E9%97%B4"><span class="toc-text">算子内并行空间</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Sharding-Spec"><span class="toc-text">Sharding Spec</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Resharding"><span class="toc-text">Resharding</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AE%97%E5%AD%90%E7%9A%84%E5%B9%B6%E8%A1%8C%E7%AE%97%E6%B3%95"><span class="toc-text">算子的并行算法</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ILP-%E5%85%AC%E5%BC%8F"><span class="toc-text">ILP 公式</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-Inter-op-%E5%B9%B6%E8%A1%8C"><span class="toc-text">5. Inter-op 并行</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AE%97%E5%AD%90%E9%97%B4%E5%B9%B6%E8%A1%8C%E7%AD%96%E7%95%A5%E7%9A%84%E6%90%9C%E7%B4%A2%E7%A9%BA%E9%97%B4"><span class="toc-text">算子间并行策略的搜索空间</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#DP-%E5%85%AC%E5%BC%8F"><span class="toc-text">DP 公式</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%A4%8D%E6%9D%82%E5%BA%A6"><span class="toc-text">复杂度</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#early-pruning"><span class="toc-text">early pruning</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%BF%90%E7%AE%97%E7%AC%A6%E8%81%9A%E7%B1%BB"><span class="toc-text">运算符聚类</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%AE%97%E6%B3%95%E6%8F%8F%E8%BF%B0"><span class="toc-text">算法描述</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-Parallelism-Orchestration%E5%B9%B6%E8%A1%8C%E7%BC%96%E6%8E%92"><span class="toc-text">6. Parallelism Orchestration并行编排</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%B7%A8mesh%E7%9A%84Resharding"><span class="toc-text">跨mesh的Resharding</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%8F%AF%E6%89%A7%E8%A1%8C%E6%8C%87%E4%BB%A4"><span class="toc-text">生成可执行指令</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-%E9%99%90%E5%88%B6%E5%92%8C%E8%AE%A8%E8%AE%BA"><span class="toc-text">7. 限制和讨论</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%84%E5%BD%95"><span class="toc-text">附录</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B3%E4%BA%8E%E7%AE%97%E5%AD%90%E8%81%9A%E7%B1%BB%E7%9A%84%E7%96%91%E6%83%91%E8%A7%A3%E9%87%8A"><span class="toc-text">关于算子聚类的疑惑解释</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AC%E5%BC%8F%E5%9B%9E%E9%A1%BE"><span class="toc-text">公式回顾</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%A7%A3%E9%87%8A"><span class="toc-text">解释</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%8F%96%E6%9C%80%E5%A4%A7%E5%80%BC"><span class="toc-text">为什么要取最大值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%8F%96%E6%9C%80%E5%B0%8F%E5%80%BC"><span class="toc-text">为什么要取最小值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E4%B8%8E%E6%95%88%E7%8E%87%E4%BC%98%E5%8C%96"><span class="toc-text">负载均衡与效率优化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-text">总结</span></a></li></ol></li></ol></div><div class="widget-footer"><a class="top" onclick="util.scrollTop()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path stroke-linejoin="round" d="m9 15.5l3-3l3 3m-6-4l3-3l3 3"/><path d="M7 3.338A9.95 9.95 0 0 1 12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12c0-1.821.487-3.53 1.338-5"/></g></svg><span>Scroll to Top</span></a><a class="buttom" onclick="util.scrollComment()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="M8 10.5h8M8 14h5.5M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453c.178.356.237.763.134 1.148l-.595 2.226a1.3 1.3 0 0 0 1.591 1.592l2.226-.596a1.63 1.63 0 0 1 1.149.133A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10c0-1.821-.487-3.53-1.338-5"/></svg><span>Join Discussion</span></a></div></widget>
+</div></aside><div class='float-panel'>
+  <button type='button' style='display:none' class='laptop-only rightbar-toggle mobile' onclick='sidebar.rightbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+  </button>
+  <button type='button' style='display:none' class='mobile-only leftbar-toggle mobile' onclick='sidebar.leftbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11c0-3.771 0-5.657 1.172-6.828C4.343 3 6.229 3 10 3h4c3.771 0 5.657 0 6.828 1.172C22 5.343 22 7.229 22 11v2c0 3.771 0 5.657-1.172 6.828C19.657 21 17.771 21 14 21h-4c-3.771 0-5.657 0-6.828-1.172C2 18.657 2 16.771 2 13z"/><path id="sep" stroke-linecap="round" d="M5.5 10h6m-5 4h4m4.5 7V3"/></g></svg>
+  </button>
+</div>
+</div><div class="scripts">
+
+
+<script type="text/javascript">
+  window.canonical = {"originalHost":null,"officialHosts":["localhost"],"encoded":""};
+  const ctx = {
+    date_suffix: {
+      just: `Just`,
+      min: `minutes ago`,
+      hour: `hours ago`,
+      day: `days ago`,
+    },
+    root : `/`,
+    tag_plugins: {
+      chat: Object.assign({"api":"https://siteinfo.listentothewind.cn/api/v1"}),
+    }
+  };
+
+  // required plugins (only load if needs)
+  if (`local_search`) {
+    ctx.search = {};
+    ctx.search.service = `local_search`;
+    if (ctx.search.service == 'local_search') {
+      let service_obj = Object.assign({}, `{"field":"all","path":"/search.json","content":true,"skip_search":null,"sort":"-date"}`);
+      ctx.search[ctx.search.service] = service_obj;
+    }
+  }
+  const def = {
+    avatar: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/3442075.svg`,
+    cover: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/cover/76b86c0226ffd.svg`,
+    loading: `https://api.iconify.design/eos-icons:three-dots-loading.svg?color=%231cd0fd`,
+  };
+  const deps = {
+    jquery: `https://gcore.jsdelivr.net/npm/jquery@3.7/dist/jquery.min.js`,
+    marked: `https://gcore.jsdelivr.net/npm/marked@13.0/lib/marked.umd.min.js`,
+    lazyload: `/%5Bobject%20Object%5D`
+  }
+  
+
+</script>
+
+<script type="text/javascript">
+  
+  function RunItem() {
+    this.list = []; // 存放回调函数
+    this.start = () => {
+      for (var i = 0; i < this.list.length; i++) {
+        this.list[i].run();
+      }
+    };
+    this.push = (fn, name, setRequestAnimationFrame = true) => {
+      let myfn = fn
+      if (setRequestAnimationFrame) {
+        myfn = () => {
+          utils.requestAnimationFrame(fn)
+        }
+      }
+      var f = new Item(myfn, name);
+      this.list.push(f);
+    };
+    this.remove = (name) => {
+      for (let index = 0; index < this.list.length; index++) {
+        const e = this.list[index];
+        if (e.name == name) {
+          this.list.splice(index, 1);
+        }
+      }
+    }
+    // 构造一个可以run的对象
+    function Item(fn, name) {
+      // 函数名称
+      this.name = name || fn.name;
+      // run方法
+      this.run = () => {
+        try {
+          fn()
+        } catch (error) {
+          console.log(error);
+        }
+      };
+    }
+  }
+
+  const utils = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    css: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    js: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      if (src.startsWith('/')) {
+        src = ctx.root + src.substring(1);
+      }
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function () {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    jq: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        utils.js(deps.jquery).then(fn)
+      } else {
+        fn()
+      }
+    },
+
+    onLoading: (el) => {
+      if (el) {
+        $(el).append('<div class="loading-wrap"><svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" stroke-opacity=".3" d="M12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="1.3s" values="60;0"/></path><path stroke-dasharray="15" stroke-dashoffset="15" d="M12 3C16.9706 3 21 7.02944 21 12"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.3s" values="15;0"/><animateTransform attributeName="transform" dur="1.5s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12"/></path></g></svg></div>');
+      }
+    },
+    onLoadSuccess: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap').remove();
+      }
+    },
+    onLoadFailure: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap svg').remove();
+        $(el).find('.loading-wrap').append('<svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" d="M12 3L21 20H3L12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.5s" values="60;0"/></path><path stroke-dasharray="6" stroke-dashoffset="6" d="M12 10V14"><animate fill="freeze" attributeName="stroke-dashoffset" begin="0.6s" dur="0.2s" values="6;0"/></path></g><circle cx="12" cy="17" r="1" fill="currentColor" fill-opacity="0"><animate fill="freeze" attributeName="fill-opacity" begin="0.8s" dur="0.4s" values="0;1"/></circle></svg>');
+        $(el).find('.loading-wrap').addClass('error');
+      }
+    },
+    request: (el, url, callback, onFailure) => {
+      const maxRetry = 3;
+      let retryCount = 0;
+
+      return new Promise((resolve, reject) => {
+        const load = () => {
+          utils.onLoading?.(el);
+
+          let timedOut = false;
+          const timeout = setTimeout(() => {
+            timedOut = true;
+            console.warn('[request] 超时:', url);
+
+            if (++retryCount >= maxRetry) {
+              utils.onLoadFailure?.(el);
+              onFailure?.();
+              reject('请求超时');
+            } else {
+              setTimeout(load, 1000);
+            }
+          }, 5000);
+
+          fetch(url).then(resp => {
+            if (timedOut) return;
+            clearTimeout(timeout);
+
+            if (!resp.ok) throw new Error('响应失败');
+            return resp;
+          }).then(data => {
+            if (timedOut) return;
+            utils.onLoadSuccess?.(el);
+            callback(data);
+            resolve(data);
+          }).catch(err => {
+            clearTimeout(timeout);
+            console.warn('[request] 错误:', err);
+
+            if (++retryCount >= maxRetry) {
+              utils.onLoadFailure?.(el);
+              onFailure?.();
+              reject(err);
+            } else {
+              setTimeout(load, 1000);
+            }
+          });
+        };
+
+        load();
+      });
+    },
+    requestWithoutLoading: (url, options = {}, maxRetry = 2, timeout = 5000) => {
+      return new Promise((resolve, reject) => {
+        let retryCount = 0;
+
+        const tryRequest = () => {
+          let timedOut = false;
+          const timer = setTimeout(() => {
+            timedOut = true;
+            if (++retryCount > maxRetry) reject('timeout');
+            else tryRequest();
+          }, timeout);
+
+          fetch(url, options)
+            .then(resp => {
+              clearTimeout(timer);
+              if (!resp.ok) throw new Error('bad response');
+              resolve(resp);
+            })
+            .catch(err => {
+              clearTimeout(timer);
+              if (++retryCount > maxRetry) reject(err);
+              else setTimeout(tryRequest, 500);
+            });
+        };
+
+        tryRequest();
+      });
+    },
+    /********************** requestAnimationFrame ********************************/
+    // 1、requestAnimationFrame 会把每一帧中的所有 DOM 操作集中起来，在一次重绘或回流中就完成，并且重绘或回流的时间间隔紧紧跟随浏览器的刷新频率，一般来说，这个频率为每秒60帧。
+    // 2、在隐藏或不可见的元素中，requestAnimationFrame 将不会进行重绘或回流，这当然就意味着更少的的 cpu，gpu 和内存使用量。
+    requestAnimationFrame: (fn) => {
+      if (!window.requestAnimationFrame) {
+        window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame;
+      }
+      window.requestAnimationFrame(fn)
+    },
+    dark: {},
+  };
+
+  // utils.dark.mode 当前模式 dark or light
+  // utils.dark.toggle() 暗黑模式触发器
+  // utils.dark.push(callBack[,"callBackName"]) 传入触发器回调函数
+  utils.dark.method = {
+    toggle: new RunItem(),
+  };
+  utils.dark = Object.assign(utils.dark, {
+    push: utils.dark.method.toggle.push,
+  });
+</script>
+<script>
+  const sidebar = {
+    leftbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    rightbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('rightbar');
+        l_body.removeAttribute('leftbar');
+      }
+    },
+    dismiss: () => {
+      if (l_body) {
+        l_body.removeAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    toggleTOC: () => {
+      document.querySelector('#data-toc').classList.toggle('collapse');
+    }
+  }
+</script>
+<script type="text/javascript">
+  (() => {
+    const tagSwitchers = document.querySelectorAll('.tag-subtree.parent-tag > a > .tag-switcher-wrapper')
+    for (const tagSwitcher of tagSwitchers) {
+      tagSwitcher.addEventListener('click', (e) => {
+        const parent = e.target.closest('.tag-subtree.parent-tag')
+        parent.classList.toggle('expanded')
+        e.preventDefault()
+      })
+    }
+
+    // Get active tag from query string, then activate it.
+    const urlParams = new URLSearchParams(window.location.search)
+    const activeTag = urlParams.get('tag')
+    if (activeTag) {
+      let tag = document.querySelector(`.tag-subtree[data-tag="${activeTag}"]`)
+      if (tag) {
+        tag.querySelector('a').classList.add('active')
+        
+        while (tag) {
+          tag.classList.add('expanded')
+          tag = tag.parentElement.closest('.tag-subtree.parent-tag')
+        }
+      }
+    }
+  })()
+</script>
+
+<script async src="https://gcore.jsdelivr.net/npm/vanilla-lazyload@19.1/dist/lazyload.min.js"></script>
+<script>
+  // https://www.npmjs.com/package/vanilla-lazyload
+  // Set the options globally
+  // to make LazyLoad self-initialize
+  window.lazyLoadOptions = {
+    elements_selector: ".lazy",
+    callback_loaded: (el) => {
+      el.classList.add('loaded');
+      const wrapper = el.closest('.lazy-box');
+      const icon = wrapper?.querySelector('.lazy-icon');
+      if (icon) icon.remove();
+    }
+  };
+  // Listen to the initialization event
+  // and get the instance of LazyLoad
+  window.addEventListener(
+    "LazyLoad::Initialized",
+    function (event) {
+      window.lazyLoadInstance = event.detail.instance;
+    },
+    false
+  );
+  document.addEventListener('DOMContentLoaded', function () {
+    window.lazyLoadInstance?.update();
+  });
+
+  window.wrapLazyloadImages = (container) => {
+    if (typeof container === 'string') {
+      container = document.querySelector(container);
+    }
+    if (!container) return;
+    
+    const images = container.querySelectorAll('img');
+    images.forEach((img) => {
+      if (img.classList.contains('lazy')) return;
+
+      const src = img.getAttribute('src');
+      if (!src) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'lazy-box';
+
+      const newImg = img.cloneNode();
+      newImg.removeAttribute('src');
+      newImg.setAttribute('data-src', src);
+      newImg.classList.add('lazy');
+
+      const icon = document.createElement('div');
+      icon.className = 'lazy-icon';
+      if (def.loading) {
+        icon.style.backgroundImage = `url("${def.loading}")`;
+      }
+
+      wrapper.appendChild(newImg);
+      wrapper.appendChild(icon);
+
+      img.replaceWith(wrapper);
+    });
+
+    // 通知 LazyLoad 更新
+    if (window.lazyLoadInstance?.update) {
+      window.lazyLoadInstance.update();
+    }
+  }
+  
+</script>
+
+<!-- required -->
+<script src="/js/main.js?v=1.33.1" defer></script>
+
+<script type="text/javascript">
+  const applyTheme = (theme) => {
+    if (theme === 'auto') {
+      document.documentElement.removeAttribute('data-theme')
+    } else {
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+
+    // applyThemeToGiscus(theme)
+  }
+
+  // FIXME: 这会导致无法使用 preferred_color_scheme 以外的主题
+  const applyThemeToGiscus = (theme) => {
+    // theme = theme === 'auto' ? 'preferred_color_scheme' : theme
+    const cmt = document.getElementById('giscus')
+    if (cmt) {
+      // This works before giscus load.
+      cmt.setAttribute('data-theme', theme)
+    }
+
+    const iframe = document.querySelector('#comments > section.giscus > iframe')
+    if (iframe) {
+      // This works after giscus loaded.
+      const src = iframe.src
+      const newSrc = src.replace(/theme=[\w]+/, `theme=${theme}`)
+      iframe.src = newSrc
+    }
+  }
+
+  const switchTheme = () => {
+    // light -> dark -> auto -> light -> ...
+    const currentTheme = document.documentElement.getAttribute('data-theme')
+    let newTheme;
+    switch (currentTheme) {
+      case 'light':
+        newTheme = 'dark'
+        break
+      case 'dark':
+        newTheme = 'auto'
+        break
+      default:
+        newTheme = 'light'
+    }
+    applyTheme(newTheme)
+    window.localStorage.setItem('Stellar.theme', newTheme)
+    utils.dark.mode = newTheme === 'auto' ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : newTheme;
+    utils.dark.method.toggle.start();
+
+    const messages = {
+      light: `Switched to Light Mode`,
+      dark: `Switched to Dark Mode`,
+      auto: `Switched to Auto Mode`,
+    }
+    hud?.toast?.(messages[newTheme])
+  }
+
+  (() => {
+    // Apply user's preferred theme, if any.
+    const theme = window.localStorage.getItem('Stellar.theme')
+    if (theme !== null) {
+      applyTheme(theme)
+    } else {
+      utils.dark.mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    utils.dark.method.toggle.start();
+  })()
+</script>
+
+
+<!-- optional -->
+
+  <script type="module">
+  const el = document.querySelector('#comments #giscus');
+  util.viewportLazyload(el, load_discus, false);
+
+  function load_discus() {
+    if (!el) return;
+    try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.error(error);
+      }
+      const script = document.createElement('script');
+      script.async = true;
+      for (const key of Object.keys(el.attributes)) {
+        const attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+  }
+</script>
+
+
+
+
+<script defer>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.services = Object.assign({}, JSON.parse(`{"mdrender":{"js":"/js/services/mdrender.js"},"siteinfo":{"js":"/js/services/siteinfo.js","api":null},"ghinfo":{"js":"/js/services/ghinfo.js"},"rating":{"js":"/js/services/rating.js","api":"https://star-vote.xaox.cc/api/rating"},"vote":{"js":"/js/services/vote.js","api":"https://star-vote.xaox.cc/api/vote"},"sites":{"js":"/js/services/sites.js"},"friends":{"js":"/js/services/friends.js"},"friends_and_posts":{"js":"/js/services/friends_and_posts.js"},"timeline":{"js":"/js/services/timeline.js"},"fcircle":{"js":"/js/services/fcircle.js"},"weibo":{"js":"/js/services/weibo.js"},"memos":{"js":"/js/services/memos.js"},"voice":{"js":"/js/plugins/voice.js"},"video":{"js":"/js/plugins/video.js"},"download-file":{"js":"/js/plugins/download-file.js"},"twikoo":{"js":"/js/services/twikoo_latest_comment.js"},"waline":{"js":"/js/services/waline_latest_comment.js"},"artalk":{"js":"/js/services/artalk_latest_comment.js"},"giscus":{"js":"/js/services/giscus_latest_comment.js"},"contributors":{"edit_this_page":{"_posts/":null,"wiki/stellar/":"https://github.com/xaoxuu/hexo-theme-stellar-docs/blob/main/"},"js":"/js/services/contributors.js"}}`));
+    for (let id of Object.keys(ctx.services)) {
+      const js = ctx.services[id].js;
+      if (id == 'siteinfo') {
+        ctx.cardlinks = document.querySelectorAll('a.link-card[cardlink]');
+        if (ctx.cardlinks?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            setCardLink(ctx.cardlinks);
+          });
+        }
+      } else if (id == 'voice') {
+        ctx.voiceAudios = document.querySelectorAll('.voice>audio');
+        if (ctx.voiceAudios?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            createVoiceDom(ctx.voiceAudios);
+          });
+        }
+      } else if (id == 'video') {
+        ctx.videos = document.querySelectorAll('.video>video');
+        if (ctx.videos?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            videoEvents(ctx.videos);
+          });
+        }
+      } else if (id == 'download-file') {
+        ctx.files = document.querySelectorAll('.file');
+        if (ctx.files?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            downloadFileEvent(ctx.files);
+          });
+        }
+      } else {
+        const els = document.getElementsByClassName(`ds-${id}`);
+        if (els?.length > 0) {
+          utils.jq(() => {
+            if (id == 'timeline' || 'memos' || 'marked') {
+              utils.js(deps.marked).then(function () {
+                utils.js(js, { defer: true });
+              });
+            } else {
+              utils.js(js, { defer: true });
+            }
+          });
+        }
+      }
+    }
+
+    // chat iphone time
+    let phoneTimes = document.querySelectorAll('.chat .status-bar .time');
+
+    if (phoneTimes.length > 0) {
+      NowTime();
+      var date = new Date();
+      var sec = date.getSeconds();
+      var firstAdjustInterval = setInterval(firstAdjustTime, 1000 * (60 - sec));
+    }
+
+    function firstAdjustTime() {
+      NowTime();
+      clearInterval(firstAdjustInterval);
+      setInterval(NowTime, 1000 * 60);
+    }
+
+    function NowTime() {
+      for (let i = 0; i < phoneTimes.length; ++i) {
+        var timeSpan = phoneTimes[i];
+        var date = new Date();
+        var hour = date.getHours();
+        var min = date.getMinutes();
+        timeSpan.innerHTML = check(hour) + ":" + check(min);
+      }
+    };
+
+    function check(val) {
+      if (val < 10) {
+        return ("0" + val);
+      }
+      return (val);
+    }
+
+    // chat quote
+    const chat_quote_obverser = new IntersectionObserver((entries, observer) => {
+      entries.filter((entry) => { return entry.isIntersecting }).sort((a, b) => a.intersectionRect.y !== b.intersectionRect.y ? a.intersectionRect.y - b.intersectionRect.y : a.intersectionRect.x - b.intersectionRect.x).forEach((entry, index) => {
+          observer.unobserve(entry.target);
+          setTimeout(() => {
+            entry.target.classList.add('quote-blink');
+            setTimeout(() => {
+              entry.target.classList.remove('quote-blink');
+            }, 1000);
+          }, Math.max(100, 16) * (index + 1));
+        });
+    });
+
+    var chatQuotes = document.querySelectorAll(".chat .talk .quote");
+    chatQuotes.forEach((quote) => {
+      quote.addEventListener('click', function () {
+        var chatCellDom = document.getElementById("quote-" + quote.getAttribute("quotedCellTag"));
+        if (chatCellDom) {
+          var chatDiv = chatCellDom.parentElement;
+          var mid = chatDiv.clientHeight / 2;
+          var offsetTop = chatCellDom.offsetTop;
+          if (offsetTop > mid - chatCellDom.clientHeight / 2) {
+            chatDiv.scrollTo({
+              top: chatCellDom.offsetTop - mid + chatCellDom.clientHeight / 2,
+              behavior: "smooth"
+            });
+          } else {
+            chatDiv.scrollTo({
+              top: 0,
+              behavior: "smooth"
+            });
+          }
+          chat_quote_obverser.observe(chatCellDom);
+        }
+      });
+    });
+  });
+</script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.search = {
+      path: `/search.json`,
+    }
+    utils.js('/js/search/local-search.js', { defer: true });
+  });
+</script><script>
+  window.FPConfig = {
+    delay: 0,
+    ignoreKeywords: [],
+    maxRPS: 5,
+    hoverDelay: 25
+  };
+</script>
+<script defer src="https://cdn.bootcdn.net/ajax/libs/flying-pages/2.1.2/flying-pages.min.js"></script><script>
+  ctx.fancybox = {
+    selector: ``,
+    css: `https://cdn.bootcdn.net/ajax/libs/fancyapps-ui/5.0.22/fancybox/fancybox.min.css`,
+    js: `https://cdn.bootcdn.net/ajax/libs/fancyapps-ui/5.0.22/fancybox/fancybox.umd.min.js`
+  };
+  var selector = '[data-fancybox]:not(.error), .with-fancybox .atk-content img:not([atk-emoticon])';
+  if (ctx.fancybox.selector) {
+    selector += `, ${ctx.fancybox.selector}`
+  }
+  var needFancybox = document.querySelectorAll(selector).length !== 0;
+  if (!needFancybox) {
+    const memos = document.getElementsByClassName('ds-memos');
+    if (memos != undefined && memos.length > 0) {
+      needFancybox = true;
+    }
+    const fancybox = document.getElementsByClassName('with-fancybox');
+    if (fancybox != undefined && fancybox.length > 0) {
+      needFancybox = true;
+    }
+  }
+  if (needFancybox) {
+    utils.css(ctx.fancybox.css);
+    utils.js(ctx.fancybox.js, { defer: true }).then(function () {
+      Fancybox.bind(selector, {
+        hideScrollbar: false,
+        Thumbs: {
+          autoStart: false,
+        },
+        caption: (fancybox, slide) => {
+          return slide.triggerEl.alt || slide.triggerEl.dataset.caption || null
+        }
+      });
+    })
+  }
+</script>
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    const swiper_api = document.getElementById('swiper-api');
+    if (swiper_api != undefined) {
+      utils.css(`https://unpkg.com/swiper@10.3/swiper-bundle.min.css`);
+      utils.js(`https://unpkg.com/swiper@10.3/swiper-bundle.min.js`, { defer: true }).then(function () {
+        const effect = swiper_api.getAttribute('effect') || '';
+        var swiper = new Swiper('.swiper#swiper-api', {
+          slidesPerView: 'auto',
+          spaceBetween: 8,
+          centeredSlides: true,
+          effect: effect,
+          rewind: true,
+          pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+          },
+          navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+          },
+        });
+      })
+    }
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    window.codeElements = document.querySelectorAll('.code');
+    if (window.codeElements.length > 0) {
+      ctx.copycode = {
+        default_text: `Copy`,
+        success_text: `Copied`,
+        toast: `复制成功`,
+      };
+      utils.js('/js/plugins/copycode.js');
+    }
+  });
+</script>
+
+
+<!-- inject -->
+
+</div></body></html>
