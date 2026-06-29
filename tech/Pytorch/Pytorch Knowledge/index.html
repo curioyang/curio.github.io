@@ -1,0 +1,1036 @@
+
+<!DOCTYPE html><html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="hexo-theme" content="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.33.1" theme-name="Stellar" theme-version="1.33.1">
+  
+  
+  <meta name="generator" content="Hexo 8.1.1">
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel="preconnect" href="https://gcore.jsdelivr.net" crossorigin><link rel="preconnect" href="https://unpkg.com" crossorigin><link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin>
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000">
+  <meta name="theme-color" content="#f9fafb">
+  <title>Pytorch知识记录 - Curio.OoO</title>
+
+  
+    <meta name="description" content="Used to note some pytorch source code about custom device.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Pytorch知识记录">
+<meta property="og:url" content="https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/">
+<meta property="og:site_name" content="Curio.OoO">
+<meta property="og:description" content="Used to note some pytorch source code about custom device.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2026-06-21T16:00:00.000Z">
+<meta property="article:modified_time" content="2026-06-29T05:33:23.218Z">
+<meta property="article:author" content="Curio Yang">
+<meta property="article:tag" content="pytorch">
+<meta name="twitter:card" content="summary">
+  
+  
+  
+  <meta name="keywords" content="pytorch">
+
+  <!-- feed -->
+  
+
+  <link rel="stylesheet" href="/css/main.css?v=1.33.1">
+
+
+  
+
+  
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Curio Yang","sameAs":[]},"dateCreated":"2026-06-22T00:00:00+08:00","dateModified":"2026-06-29T13:33:23+08:00","datePublished":"2026-06-22T00:00:00+08:00","description":"","headline":"Pytorch知识记录","mainEntityOfPage":{"@type":"WebPage","@id":"https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/"},"publisher":{"@type":"Organization","name":"Curio Yang","sameAs":[]},"url":"https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/","keywords":"pytorch","image":[]}</script>
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/xaoxuu/favicon/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/xaoxuu/favicon/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/xaoxuu/favicon/favicon-16x16.png"><link rel="manifest" href="/assets/xaoxuu/favicon/site.webmanifest"><link rel="shortcut icon" href="/assets/xaoxuu/favicon/favicon.ico"><meta name="theme-color" content="#f8f8f8"><link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-screen-webfont/1.7.0/style.min.css" media="all" /><style>
+.page-footer .text {
+  text-align: center;
+}
+</style>
+
+<!-- hexo injector head_end start --><script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@7.1.2/dist/mermaid.esm.min.mjs">
+    mermaid.initialize(
+      startOnLoad: true,
+    );
+    </script><!-- hexo injector head_end end --></head>
+<body><div class="sitebg"><div class="siteblur"></div></div>
+
+<div class="l_body content" id="start" layout="post" type="tech" ><aside class="l_left"><div class="sidebg"></div><div class="leftbar-container">
+
+
+<header class="header"><div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="https://avatars.githubusercontent.com/u/39184746?v=4" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></a><a class="title" href="/"><div class="main">Curio.OoO</div><div class="sub normal cap">生活未必事事如愿</div><div class="sub hover cap" style="opacity:0"> 成长必定步步坎坷</div></a></div></header>
+
+<div class="nav-area">
+
+<nav class="menu dis-select"><a class="nav-item" title="主页" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item" title="技术相关" href="/tech/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item" title="生活点滴" href="/life/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a><a class="nav-item" title="个人项目" href="/wiki/" style="color:#2196f3"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a></nav>
+</div>
+<div class="widgets">
+<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" placeholder="Search"></form><div id="search-result"></div><div class="search-no-result">No Results!</div></div>
+
+
+
+<widget class="widget-wrapper recent post-list"><div class="widget-header dis-select"><span class="name">Recent Update</span></div><div class="widget-body fs14"></div></widget>
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" href="https://github.com/curioyang" target="_blank" rel="external nofollow noopener noreferrer"><img src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/08a41b181ce68.svg"/></a></div></footer>
+</div></aside><div class="l_main" id="main">
+
+
+
+
+
+<div class="article banner top">
+  <div class="content">
+    <div class="top bread-nav footnote"><div class="left"><div class="flex-row" id="breadcrumb"><a class="cap breadcrumb" href="/">Home</a>
+<span class="sep"></span><a class="cap breadcrumb" href="/">Blog</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/tech/">tech</a></div>
+<div class="flex-row" id="post-meta"><span class="text created">Posted on: <time datetime="2026-06-21T16:00:00.000Z">2026-06-22</time></span><span class="sep updated"></span><span class="text updated">Updated on: <time datetime="2026-06-29T05:33:23.218Z">2026-06-29</time></span></div></div></div>
+    
+    <div class="bottom only-title">
+      
+      <div class="text-area">
+        <h1 class="text title"><span>Pytorch知识记录</span></h1>
+        
+      </div>
+    </div>
+    
+  </div>
+  </div><article class="md-text content"><!-- 摘要部分（可选） -->
+<span id="more"></span>
+
+
+<h2 id="前言-引言"><a href="#前言-引言" class="headerlink" title="前言&#x2F;引言"></a>前言&#x2F;引言</h2><p>随着LLM的快速发展，对于各个硬件厂商来说快速的迭代验证某些功能是非常必要的，比如算子。如何能够快速的验证自家算子实现的是否准确，最简单的办法就是在torch中增加自定义device，然后利用torch的dispatch机制来逐个调用，这样不需要等待编译器完工就可以跑起来整个E2E的算子精度验证，当然这只是一种较为基础的验证。</p>
+<h2 id="func-schema"><a href="#func-schema" class="headerlink" title="func schema"></a>func schema</h2><p>Pytorch中支持的算子很多很多，而且每个算子都存在多种使用方式，可以参考<code>pytorch/aten/src/ATen/native/native_functions.yaml</code>中的函数定义，下面以<code>fmod</code>为例来说明集中不同的schema。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod.Scalar_out(Tensor</span> <span class="string">self,</span> <span class="string">Scalar</span> <span class="string">other,</span> <span class="string">*,</span> <span class="string">Tensor(a!)</span> <span class="string">out)</span> <span class="string">-&gt;</span> <span class="string">Tensor(a!)</span></span><br><span class="line">  <span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br><span class="line">  <span class="attr">dispatch:</span></span><br><span class="line">    <span class="attr">CompositeExplicitAutograd:</span> <span class="string">fmod_out</span></span><br><span class="line">  <span class="attr">tags:</span> <span class="string">pointwise</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod.Scalar(Tensor</span> <span class="string">self,</span> <span class="string">Scalar</span> <span class="string">other)</span> <span class="string">-&gt;</span> <span class="string">Tensor</span></span><br><span class="line">  <span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br><span class="line">  <span class="attr">variants:</span> <span class="string">method,</span> <span class="string">function</span></span><br><span class="line">  <span class="attr">dispatch:</span></span><br><span class="line">    <span class="attr">CompositeExplicitAutograd:</span> <span class="string">fmod</span></span><br><span class="line">  <span class="attr">tags:</span> [<span class="string">core</span>, <span class="string">pointwise</span>]</span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod_.Scalar(Tensor(a!)</span> <span class="string">self,</span> <span class="string">Scalar</span> <span class="string">other)</span> <span class="string">-&gt;</span> <span class="string">Tensor(a!)</span></span><br><span class="line">  <span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br><span class="line">  <span class="attr">variants:</span> <span class="string">method</span></span><br><span class="line">  <span class="attr">dispatch:</span></span><br><span class="line">    <span class="attr">CompositeExplicitAutograd:</span> <span class="string">fmod_</span></span><br><span class="line">  <span class="attr">tags:</span> <span class="string">pointwise</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod.Tensor_out(Tensor</span> <span class="string">self,</span> <span class="string">Tensor</span> <span class="string">other,</span> <span class="string">*,</span> <span class="string">Tensor(a!)</span> <span class="string">out)</span> <span class="string">-&gt;</span> <span class="string">Tensor(a!)</span></span><br><span class="line">  <span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br><span class="line">  <span class="attr">structured:</span> <span class="literal">True</span></span><br><span class="line">  <span class="attr">structured_inherits:</span> <span class="string">TensorIteratorBase</span></span><br><span class="line">  <span class="attr">dispatch:</span></span><br><span class="line">    <span class="string">CPU,</span> <span class="string">CUDA,</span> <span class="string">MPS,</span> <span class="string">MTIA,</span> <span class="attr">XPU:</span> <span class="string">fmod_out</span></span><br><span class="line">  <span class="attr">tags:</span> <span class="string">pointwise</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod.Tensor(Tensor</span> <span class="string">self,</span> <span class="string">Tensor</span> <span class="string">other)</span> <span class="string">-&gt;</span> <span class="string">Tensor</span></span><br><span class="line">  <span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br><span class="line">  <span class="attr">structured_delegate:</span> <span class="string">fmod.Tensor_out</span></span><br><span class="line">  <span class="attr">variants:</span> <span class="string">method,</span> <span class="string">function</span></span><br><span class="line">  <span class="attr">tags:</span> [<span class="string">core</span>, <span class="string">pointwise</span>]</span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod_.Tensor(Tensor(a!)</span> <span class="string">self,</span> <span class="string">Tensor</span> <span class="string">other)</span> <span class="string">-&gt;</span> <span class="string">Tensor(a!)</span></span><br><span class="line">  <span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br><span class="line">  <span class="attr">variants:</span> <span class="string">method</span></span><br><span class="line">  <span class="attr">structured_delegate:</span> <span class="string">fmod.Tensor_out</span></span><br><span class="line">  <span class="attr">tags:</span> <span class="string">pointwise</span></span><br></pre></td></tr></table></figure>
+
+<p>这段 YAML 是 PyTorch 的算子注册文件 <code>native_functions.yaml</code> 中的几个条目，定义了 <code>fmod</code>（浮点取模）算子的各种变体。我们逐项拆开看，然后再总结它们和自定义后端的关系。</p>
+<hr>
+<h2 id="1-算子签名-func"><a href="#1-算子签名-func" class="headerlink" title="1. 算子签名 (func:)"></a>1. 算子签名 (<code>func:</code>)</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">func:</span> <span class="string">fmod.Scalar_out(Tensor</span> <span class="string">self,</span> <span class="string">Scalar</span> <span class="string">other,</span> <span class="string">*,</span> <span class="string">Tensor(a!)</span> <span class="string">out)</span> <span class="string">-&gt;</span> <span class="string">Tensor(a!)</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>fmod.Scalar_out</code>：算子名字，<code>fmod</code> 是基础名，<code>.Scalar_out</code> 是重载名。表示这是 <strong>第二个操作数是标量，且结果写入预分配张量 <code>out</code></strong> 的版本。</li>
+<li>参数列表：<ul>
+<li><code>Tensor self</code>：输入张量。</li>
+<li><code>Scalar other</code>：一个标量值。</li>
+<li><code>*</code> 后面的都是<strong>仅关键字参数</strong>（keyword-only），即 <code>Tensor(a!) out</code>。</li>
+<li><code>Tensor(a!)</code>：<code>a!</code> 表示这个张量<strong>会被原地修改</strong>，且函数结束后返回同一个张量。</li>
+</ul>
+</li>
+<li>返回值：<code>-&gt; Tensor(a!)</code>，即返回被修改后的 <code>out</code> 张量。</li>
+</ul>
+<p>其他变体同理：</p>
+<ul>
+<li><code>fmod.Scalar</code>：标量版本，返回新张量（没有 <code>out</code>，也不原地修改）。</li>
+<li><code>fmod_.Scalar</code>：标量版本，原地修改 <code>self</code>（<code>Tensor(a!) self</code>）。</li>
+<li><code>fmod.Tensor_out</code>：两个张量相除取模，结果写入 <code>out</code>。</li>
+<li><code>fmod.Tensor</code>：两个张量，返回新张量。</li>
+<li><code>fmod_.Tensor</code>：两个张量，原地修改 <code>self</code>。</li>
+</ul>
+<hr>
+<h2 id="2-device-check-NoCheck"><a href="#2-device-check-NoCheck" class="headerlink" title="2. device_check: NoCheck"></a>2. <code>device_check: NoCheck</code></h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">device_check:</span> <span class="string">NoCheck</span>   <span class="comment"># TensorIterator</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>默认情况下，PyTorch 会检查一个算子的所有输入张量是否在<strong>同一个设备</strong>上（比如不能一个在 CPU，一个在 CUDA）。</li>
+<li><code>NoCheck</code> 表示<strong>不做这个检查</strong>。因为 <code>fmod</code> 内部使用了 <code>TensorIterator</code>，它自己会处理设备不匹配的情况（例如会报出更合适的错误信息），所以这里提前关闭了框架层的设备一致性检查。</li>
+<li>注释里的 <code># TensorIterator</code> 也说明了它依赖这个机制。</li>
+</ul>
+<hr>
+<h2 id="3-dispatch-（分发规则）"><a href="#3-dispatch-（分发规则）" class="headerlink" title="3. dispatch:（分发规则）"></a>3. <code>dispatch:</code>（分发规则）</h2><p>这是最关键的部分，决定了<strong>不同 dispatch key 下调用哪个 C++ 函数</strong>。</p>
+<h3 id="①-标量版本的-dispatch"><a href="#①-标量版本的-dispatch" class="headerlink" title="① 标量版本的 dispatch"></a>① 标量版本的 dispatch</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">dispatch:</span></span><br><span class="line">  <span class="attr">CompositeExplicitAutograd:</span> <span class="string">fmod_out</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>标量版的 <code>out</code>、普通、in-place 三个变体，其 dispatch 键都只写了 <code>CompositeExplicitAutograd</code>。</li>
+<li>这表示：<strong>这些算子被归类为“组合显式自动微分”算子</strong>。它们的前向实现（<code>fmod_out</code>、<code>fmod</code>、<code>fmod_</code>）是由其他基础算子<strong>组合</strong>而成的，而不是直接手写的底层 kernel。</li>
+<li>对 autograd 而言，<code>CompositeExplicitAutograd</code> 意味着该算子有<strong>自己显式的反向传播规则</strong>（在 <code>derivatives.yaml</code> 中定义），但它的前向并不直接调用设备特化 kernel，而是调用组合实现（比如把标量转成张量再调张量版本，或直接使用循环）。</li>
+<li><strong>对于你的自定义后端</strong>：你<strong>不需要</strong>为这些标量版本单独注册 kernel。因为 dispatcher 找不到你的后端专属实现时，就会回退到 <code>CompositeExplicitAutograd</code> 的实现，这个实现会转而调用更底层的张量版本或其他算子，最终走到你的后端基础算子（比如 <code>fmod.Tensor_out</code>）。</li>
+</ul>
+<h3 id="②-张量版本的-dispatch"><a href="#②-张量版本的-dispatch" class="headerlink" title="② 张量版本的 dispatch"></a>② 张量版本的 dispatch</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">dispatch:</span></span><br><span class="line">  <span class="string">CPU,</span> <span class="string">CUDA,</span> <span class="string">MPS,</span> <span class="string">MTIA,</span> <span class="attr">XPU:</span> <span class="string">fmod_out</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>这里明确列出了 <strong>CPU、CUDA、MPS、MTIA、XPU</strong> 这几个后端，它们都会直接使用同一个内核 <code>fmod_out</code>。</li>
+<li>这个 <code>fmod_out</code> 内核很可能是基于 <code>TensorIterator</code> 的通用、高性能实现，因此多个后端可以共享同一套代码（通过 <code>TensorIterator</code> 自动适配设备）。</li>
+<li><strong>对于你的自定义后端</strong>：因为你使用的是 <code>PrivateUse1</code>，而这个列表里没有 <code>PrivateUse1</code>，所以 PyTorch 的 dispatcher 在调用 <code>fmod.Tensor_out</code> 时，找不到你设备专用的 kernel。会发生什么？<ul>
+<li>如果没有设置任何 fallback，会<strong>报错</strong>：“no kernel registered for PrivateUse1”。</li>
+<li>如果你在注册时使用了 <code>torch._C._dispatch_fallback(torch._C.DispatchKey.PrivateUse1, torch._C.DispatchKey.CompositeImplicitAutograd)</code> 之类的 fallback 策略，则可能会回退到 CPU 实现（导致性能和设备问题），或者回退到组合实现。</li>
+<li><strong>推荐做法</strong>：如果你的后端可以复用 <code>TensorIterator</code> 的现有 CPU&#x2F;CUDA 实现，你应该在注册时把 <code>fmod.Tensor_out</code> 的 kernel 也“指向”同一个 <code>fmod_out</code> 函数，即：<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">m.<span class="built_in">impl</span>(<span class="string">&quot;fmod.Tensor_out&quot;</span>, at::native::fmod_out);</span><br></pre></td></tr></table></figure>
+这样你的设备就能直接使用通用的 <code>TensorIterator</code> 内核了。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="4-variants-（生成哪些-Python-接口）"><a href="#4-variants-（生成哪些-Python-接口）" class="headerlink" title="4. variants:（生成哪些 Python 接口）"></a>4. <code>variants:</code>（生成哪些 Python 接口）</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">variants:</span> <span class="string">method,</span> <span class="string">function</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>method</code>：为张量生成一个方法，如 <code>tensor.fmod(other)</code>。</li>
+<li><code>function</code>：生成一个 <code>torch</code> 模块下的函数，如 <code>torch.fmod(tensor, other)</code>。</li>
+<li>如果没有 <code>variants</code> 字段，默认同时生成 <code>method</code> 和 <code>function</code>（有些版本默认不同，这里显式写了两种）。</li>
+</ul>
+<hr>
+<h2 id="5-tags-（标签）"><a href="#5-tags-（标签）" class="headerlink" title="5. tags:（标签）"></a>5. <code>tags:</code>（标签）</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">tags:</span> [<span class="string">core</span>, <span class="string">pointwise</span>]</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>core</code>：标记为核心算子，会进入 PyTorch 的“core ATen IR”中，一些分析工具和编译器（如 <code>torch.compile</code>）会重点关注这些算子。</li>
+<li><code>pointwise</code>：逐元素操作，意味着输出和输入形状相同，且每个元素独立计算，不依赖相邻元素。这个标签允许图优化器对这类算子进行融合等优化。</li>
+<li><code>tags: pointwise</code> 单独出现时，表示非核心的逐元素操作。</li>
+</ul>
+<hr>
+<h2 id="6-结构化内核相关-structured-structured-inherits-structured-delegate"><a href="#6-结构化内核相关-structured-structured-inherits-structured-delegate" class="headerlink" title="6. 结构化内核相关 (structured, structured_inherits, structured_delegate)"></a>6. 结构化内核相关 (<code>structured</code>, <code>structured_inherits</code>, <code>structured_delegate</code>)</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">structured:</span> <span class="literal">True</span></span><br><span class="line"><span class="attr">structured_inherits:</span> <span class="string">TensorIteratorBase</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>这是 PyTorch 的**“结构化内核”机制**，用于减少样板代码。</li>
+<li><code>structured: True</code> 表示这个算子是一个<strong>结构化算子</strong>，其内核实现遵循特定的函数签名：<code>void fmod_out_impl(...)</code>，并且代码生成器会自动创建 <code>fmod_out</code>、<code>fmod.Tensor</code>、<code>fmod_.Tensor</code> 等变体，以及自动处理反向传播的注册。</li>
+<li><code>structured_inherits: TensorIteratorBase</code> 表示这个结构化内核继承自 <code>TensorIteratorBase</code>，因此可以直接使用 <code>TensorIterator</code> 来并行化、向量化、设备适配等。</li>
+<li><code>structured_delegate: fmod.Tensor_out</code>：对于 <code>fmod.Tensor</code> 和 <code>fmod_.Tensor</code> 来说，它只是<strong>委托给</strong> <code>fmod.Tensor_out</code> 的实现。也就是说，<code>fmod.Tensor</code> 的代码生成会直接调用 <code>fmod.Tensor_out</code> 的内核，省去再写一遍的麻烦。</li>
+</ul>
+<hr>
+<h2 id="7-各变体的关系总结"><a href="#7-各变体的关系总结" class="headerlink" title="7. 各变体的关系总结"></a>7. 各变体的关系总结</h2><table>
+<thead>
+<tr>
+<th>变体名</th>
+<th>作用</th>
+<th>生成哪些 Python 接口</th>
+<th>内核委托关系</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fmod.Scalar_out</code></td>
+<td>标量版本，写入 <code>out</code></td>
+<td>仅 C++ 或 Python 底层使用</td>
+<td><code>CompositeExplicitAutograd</code> 指向组合实现</td>
+</tr>
+<tr>
+<td><code>fmod.Scalar</code></td>
+<td>标量版本，返回新张量</td>
+<td>method, function</td>
+<td>组合实现（通常会调用 <code>fmod.Scalar_out</code>）</td>
+</tr>
+<tr>
+<td><code>fmod_.Scalar</code></td>
+<td>标量版本，原地修改 <code>self</code></td>
+<td>method</td>
+<td>组合实现</td>
+</tr>
+<tr>
+<td><code>fmod.Tensor_out</code></td>
+<td>张量版本，写入 <code>out</code></td>
+<td>无直接 Python 函数，供其他变体调用</td>
+<td>后端专用内核（CPU, CUDA…）</td>
+</tr>
+<tr>
+<td><code>fmod.Tensor</code></td>
+<td>张量版本，返回新张量</td>
+<td>method, function</td>
+<td>委托给 <code>fmod.Tensor_out</code></td>
+</tr>
+<tr>
+<td><code>fmod_.Tensor</code></td>
+<td>张量版本，原地修改 <code>self</code></td>
+<td>method</td>
+<td>委托给 <code>fmod.Tensor_out</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="对你的自定义后端意味着什么？"><a href="#对你的自定义后端意味着什么？" class="headerlink" title="对你的自定义后端意味着什么？"></a>对你的自定义后端意味着什么？</h2><ol>
+<li><strong>标量版本你不需要管</strong>。它们被标记为 <code>CompositeExplicitAutograd</code>，PyTorch 会确保它们通过组合方式工作（最终会调用张量版本）。</li>
+<li><strong>张量版本 (<code>fmod.Tensor_out</code>) 是你需要关注的</strong>。如果它的 dispatch 列表里没有 <code>PrivateUse1</code>，你需要显式注册一个内核，才能让你的设备支持 <code>torch.fmod</code> 以及 <code>tensor.fmod_()</code> 等。</li>
+<li>由于 <code>fmod.Tensor_out</code> 的现有内核可能已经高度泛化（基于 <code>TensorIterator</code>），你可以直接复用那个通用实现，像这样：<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">TORCH_LIBRARY_IMPL</span>(aten, PrivateUse1, m) &#123;</span><br><span class="line">  m.<span class="built_in">impl</span>(<span class="string">&quot;fmod.Tensor_out&quot;</span>, &amp;at::native::fmod_out);  <span class="comment">// 借用 ATen 的通用实现</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+前提是你的设备支持 <code>TensorIterator</code>（即你实现了分配器、拷贝、基础循环等）。</li>
+<li>如果你没有为 <code>PrivateUse1</code> 注册 <code>fmod.Tensor_out</code>，也没有设置合适的 fallback，那么调用 <code>torch.fmod</code> 时会直接报错。</li>
+</ol>
+<p>简而言之，这段 YAML 告诉你：<strong>张量版本的 <code>fmod</code> 是有具体后端实现的，你必须为你的后端注册它（或利用 fallback 绕过），而标量版本会自动组合出来，不用你动手。</strong></p>
+</article>
+<div class="article-footer">
+    <section id="license">
+      <div class="header"><span>License</span></div>
+      <div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div>
+    </section>
+    
+
+
+    <section id="share">
+      <div class="header"><span>Share</span></div>
+      <div class="body">
+        <div class="link"><input class="copy-area" readonly="true" id="copy-link" value="https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/" /></div>
+        <div class="social-wrap dis-select"><a class="social share-item wechat" onclick="util.toggle(&quot;qrcode-wechat&quot;)"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/b32ef3da1162a.svg" /></a><a class="social share-item weibo" target="_blank" rel="external nofollow noopener noreferrer" href="https://service.weibo.com/share/share.php?url=https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/&title=Pytorch知识记录 - Curio.OoO&summary=Used to note some pytorch source code about custom device."><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/80c07e4dbb303.svg" /></a><a class="social share-item email" href="mailto:?subject=Pytorch知识记录 - Curio.OoO&amp;body=https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/a1b00e20f425d.svg" /></a><a class="social share-item link" onclick="util.copy(&quot;copy-link&quot;, &quot;Copied!&quot;)"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/8411ed322ced6.svg" /></a></div>
+        
+        <div class="qrcode" id="qrcode-wechat" style="opacity:0;height:0">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=https://curioyang.top/tech/Pytorch/Pytorch%20Knowledge/"/>
+        </div>
+        
+      </div>
+    </section>
+    </div>
+
+<div class="related-wrap" id="read-next"><section class="body"><div class="item" id="prev"><div class="note">Newer</div><a href="/tech/Code/UB/">UB行为总结</a></div><div class="item" id="next"><div class="note">Older</div><a href="/tech/LLM/05_LLM_debug/">Pytorch自定义后端精度调试</a></div></section></div>
+
+
+
+
+  <div class="related-wrap md-text" id="comments">
+    <section class='header cmt-title cap theme'>
+      <p>快来参与讨论吧~</p>
+
+    </section>
+    <section class='body cmt-body giscus'>
+      
+
+<svg class="loading" style="vertical-align:middle;fill:currentColor;overflow:hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="giscus" src="https://giscus.app/client.js" data-repo="curioyang/curio.github.io" data-repo-id="R_kgDOKuCPNA" data-category="Announcements" data-category-id="DIC_kwDOKuCPNM4CcUmT" data-mapping="url" data-strict="0" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="bottom" data-theme="catppuccin_frappe" data-lang="zh-CN" crossorigin="anonymous"></div>
+
+    </section>
+  </div>
+
+
+
+<footer class="page-footer footnote"><hr><div class="text"><p>本站由 <a href="/">Curio Yang</a> 使用 <a target="_blank" rel="noopener" href="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.33.1">Stellar 1.33.1</a> 主题创建。<br>本博客所有文章除特别声明外，均采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> 许可协议，转载请注明出处。<br><span id="busuanzi_container_site_pv">本站总访问量<span id="busuanzi_value_site_pv"></span>次</span></p>
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+</div></footer>
+<div class="main-mask" onclick="sidebar.dismiss()"></div></div><aside class="l_right">
+<div class="widgets">
+
+
+
+<widget class="widget-wrapper toc" id="data-toc" collapse="false"><div class="widget-header dis-select"><span class="name">On This Page</span><a class="cap-action" onclick="sidebar.toggleTOC()" ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></a></div><div class="widget-body"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80-%E5%BC%95%E8%A8%80"><span class="toc-text">前言&#x2F;引言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#func-schema"><span class="toc-text">func schema</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%AE%97%E5%AD%90%E7%AD%BE%E5%90%8D-func"><span class="toc-text">1. 算子签名 (func:)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-device-check-NoCheck"><span class="toc-text">2. device_check: NoCheck</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-dispatch-%EF%BC%88%E5%88%86%E5%8F%91%E8%A7%84%E5%88%99%EF%BC%89"><span class="toc-text">3. dispatch:（分发规则）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E2%91%A0-%E6%A0%87%E9%87%8F%E7%89%88%E6%9C%AC%E7%9A%84-dispatch"><span class="toc-text">① 标量版本的 dispatch</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E2%91%A1-%E5%BC%A0%E9%87%8F%E7%89%88%E6%9C%AC%E7%9A%84-dispatch"><span class="toc-text">② 张量版本的 dispatch</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-variants-%EF%BC%88%E7%94%9F%E6%88%90%E5%93%AA%E4%BA%9B-Python-%E6%8E%A5%E5%8F%A3%EF%BC%89"><span class="toc-text">4. variants:（生成哪些 Python 接口）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-tags-%EF%BC%88%E6%A0%87%E7%AD%BE%EF%BC%89"><span class="toc-text">5. tags:（标签）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6-%E7%BB%93%E6%9E%84%E5%8C%96%E5%86%85%E6%A0%B8%E7%9B%B8%E5%85%B3-structured-structured-inherits-structured-delegate"><span class="toc-text">6. 结构化内核相关 (structured, structured_inherits, structured_delegate)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#7-%E5%90%84%E5%8F%98%E4%BD%93%E7%9A%84%E5%85%B3%E7%B3%BB%E6%80%BB%E7%BB%93"><span class="toc-text">7. 各变体的关系总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AF%B9%E4%BD%A0%E7%9A%84%E8%87%AA%E5%AE%9A%E4%B9%89%E5%90%8E%E7%AB%AF%E6%84%8F%E5%91%B3%E7%9D%80%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-text">对你的自定义后端意味着什么？</span></a></li></ol></div><div class="widget-footer"><a class="top" onclick="util.scrollTop()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path stroke-linejoin="round" d="m9 15.5l3-3l3 3m-6-4l3-3l3 3"/><path d="M7 3.338A9.95 9.95 0 0 1 12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12c0-1.821.487-3.53 1.338-5"/></g></svg><span>Scroll to Top</span></a><a class="buttom" onclick="util.scrollComment()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="M8 10.5h8M8 14h5.5M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453c.178.356.237.763.134 1.148l-.595 2.226a1.3 1.3 0 0 0 1.591 1.592l2.226-.596a1.63 1.63 0 0 1 1.149.133A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10c0-1.821-.487-3.53-1.338-5"/></svg><span>Join Discussion</span></a></div></widget>
+</div></aside><div class='float-panel'>
+  <button type='button' style='display:none' class='laptop-only rightbar-toggle mobile' onclick='sidebar.rightbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+  </button>
+  <button type='button' style='display:none' class='mobile-only leftbar-toggle mobile' onclick='sidebar.leftbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11c0-3.771 0-5.657 1.172-6.828C4.343 3 6.229 3 10 3h4c3.771 0 5.657 0 6.828 1.172C22 5.343 22 7.229 22 11v2c0 3.771 0 5.657-1.172 6.828C19.657 21 17.771 21 14 21h-4c-3.771 0-5.657 0-6.828-1.172C2 18.657 2 16.771 2 13z"/><path id="sep" stroke-linecap="round" d="M5.5 10h6m-5 4h4m4.5 7V3"/></g></svg>
+  </button>
+</div>
+</div><div class="scripts">
+
+
+<script type="text/javascript">
+  window.canonical = {"originalHost":null,"officialHosts":["localhost"],"encoded":""};
+  const ctx = {
+    date_suffix: {
+      just: `Just`,
+      min: `minutes ago`,
+      hour: `hours ago`,
+      day: `days ago`,
+    },
+    root : `/`,
+    tag_plugins: {
+      chat: Object.assign({"api":"https://siteinfo.listentothewind.cn/api/v1"}),
+    }
+  };
+
+  // required plugins (only load if needs)
+  if (`local_search`) {
+    ctx.search = {};
+    ctx.search.service = `local_search`;
+    if (ctx.search.service == 'local_search') {
+      let service_obj = Object.assign({}, `{"field":"all","path":"/search.json","content":true,"skip_search":null,"sort":"-date"}`);
+      ctx.search[ctx.search.service] = service_obj;
+    }
+  }
+  const def = {
+    avatar: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/3442075.svg`,
+    cover: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/cover/76b86c0226ffd.svg`,
+    loading: `https://api.iconify.design/eos-icons:three-dots-loading.svg?color=%231cd0fd`,
+  };
+  const deps = {
+    jquery: `https://gcore.jsdelivr.net/npm/jquery@3.7/dist/jquery.min.js`,
+    marked: `https://gcore.jsdelivr.net/npm/marked@13.0/lib/marked.umd.min.js`,
+    lazyload: `/%5Bobject%20Object%5D`
+  }
+  
+
+</script>
+
+<script type="text/javascript">
+  
+  function RunItem() {
+    this.list = []; // 存放回调函数
+    this.start = () => {
+      for (var i = 0; i < this.list.length; i++) {
+        this.list[i].run();
+      }
+    };
+    this.push = (fn, name, setRequestAnimationFrame = true) => {
+      let myfn = fn
+      if (setRequestAnimationFrame) {
+        myfn = () => {
+          utils.requestAnimationFrame(fn)
+        }
+      }
+      var f = new Item(myfn, name);
+      this.list.push(f);
+    };
+    this.remove = (name) => {
+      for (let index = 0; index < this.list.length; index++) {
+        const e = this.list[index];
+        if (e.name == name) {
+          this.list.splice(index, 1);
+        }
+      }
+    }
+    // 构造一个可以run的对象
+    function Item(fn, name) {
+      // 函数名称
+      this.name = name || fn.name;
+      // run方法
+      this.run = () => {
+        try {
+          fn()
+        } catch (error) {
+          console.log(error);
+        }
+      };
+    }
+  }
+
+  const utils = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    css: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    js: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      if (src.startsWith('/')) {
+        src = ctx.root + src.substring(1);
+      }
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function () {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    jq: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        utils.js(deps.jquery).then(fn)
+      } else {
+        fn()
+      }
+    },
+
+    onLoading: (el) => {
+      if (el) {
+        $(el).append('<div class="loading-wrap"><svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" stroke-opacity=".3" d="M12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="1.3s" values="60;0"/></path><path stroke-dasharray="15" stroke-dashoffset="15" d="M12 3C16.9706 3 21 7.02944 21 12"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.3s" values="15;0"/><animateTransform attributeName="transform" dur="1.5s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12"/></path></g></svg></div>');
+      }
+    },
+    onLoadSuccess: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap').remove();
+      }
+    },
+    onLoadFailure: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap svg').remove();
+        $(el).find('.loading-wrap').append('<svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" d="M12 3L21 20H3L12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.5s" values="60;0"/></path><path stroke-dasharray="6" stroke-dashoffset="6" d="M12 10V14"><animate fill="freeze" attributeName="stroke-dashoffset" begin="0.6s" dur="0.2s" values="6;0"/></path></g><circle cx="12" cy="17" r="1" fill="currentColor" fill-opacity="0"><animate fill="freeze" attributeName="fill-opacity" begin="0.8s" dur="0.4s" values="0;1"/></circle></svg>');
+        $(el).find('.loading-wrap').addClass('error');
+      }
+    },
+    request: (el, url, callback, onFailure) => {
+      const maxRetry = 3;
+      let retryCount = 0;
+
+      return new Promise((resolve, reject) => {
+        const load = () => {
+          utils.onLoading?.(el);
+
+          let timedOut = false;
+          const timeout = setTimeout(() => {
+            timedOut = true;
+            console.warn('[request] 超时:', url);
+
+            if (++retryCount >= maxRetry) {
+              utils.onLoadFailure?.(el);
+              onFailure?.();
+              reject('请求超时');
+            } else {
+              setTimeout(load, 1000);
+            }
+          }, 5000);
+
+          fetch(url).then(resp => {
+            if (timedOut) return;
+            clearTimeout(timeout);
+
+            if (!resp.ok) throw new Error('响应失败');
+            return resp;
+          }).then(data => {
+            if (timedOut) return;
+            utils.onLoadSuccess?.(el);
+            callback(data);
+            resolve(data);
+          }).catch(err => {
+            clearTimeout(timeout);
+            console.warn('[request] 错误:', err);
+
+            if (++retryCount >= maxRetry) {
+              utils.onLoadFailure?.(el);
+              onFailure?.();
+              reject(err);
+            } else {
+              setTimeout(load, 1000);
+            }
+          });
+        };
+
+        load();
+      });
+    },
+    requestWithoutLoading: (url, options = {}, maxRetry = 2, timeout = 5000) => {
+      return new Promise((resolve, reject) => {
+        let retryCount = 0;
+
+        const tryRequest = () => {
+          let timedOut = false;
+          const timer = setTimeout(() => {
+            timedOut = true;
+            if (++retryCount > maxRetry) reject('timeout');
+            else tryRequest();
+          }, timeout);
+
+          fetch(url, options)
+            .then(resp => {
+              clearTimeout(timer);
+              if (!resp.ok) throw new Error('bad response');
+              resolve(resp);
+            })
+            .catch(err => {
+              clearTimeout(timer);
+              if (++retryCount > maxRetry) reject(err);
+              else setTimeout(tryRequest, 500);
+            });
+        };
+
+        tryRequest();
+      });
+    },
+    /********************** requestAnimationFrame ********************************/
+    // 1、requestAnimationFrame 会把每一帧中的所有 DOM 操作集中起来，在一次重绘或回流中就完成，并且重绘或回流的时间间隔紧紧跟随浏览器的刷新频率，一般来说，这个频率为每秒60帧。
+    // 2、在隐藏或不可见的元素中，requestAnimationFrame 将不会进行重绘或回流，这当然就意味着更少的的 cpu，gpu 和内存使用量。
+    requestAnimationFrame: (fn) => {
+      if (!window.requestAnimationFrame) {
+        window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame;
+      }
+      window.requestAnimationFrame(fn)
+    },
+    dark: {},
+  };
+
+  // utils.dark.mode 当前模式 dark or light
+  // utils.dark.toggle() 暗黑模式触发器
+  // utils.dark.push(callBack[,"callBackName"]) 传入触发器回调函数
+  utils.dark.method = {
+    toggle: new RunItem(),
+  };
+  utils.dark = Object.assign(utils.dark, {
+    push: utils.dark.method.toggle.push,
+  });
+</script>
+<script>
+  const sidebar = {
+    leftbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    rightbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('rightbar');
+        l_body.removeAttribute('leftbar');
+      }
+    },
+    dismiss: () => {
+      if (l_body) {
+        l_body.removeAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    toggleTOC: () => {
+      document.querySelector('#data-toc').classList.toggle('collapse');
+    }
+  }
+</script>
+<script type="text/javascript">
+  (() => {
+    const tagSwitchers = document.querySelectorAll('.tag-subtree.parent-tag > a > .tag-switcher-wrapper')
+    for (const tagSwitcher of tagSwitchers) {
+      tagSwitcher.addEventListener('click', (e) => {
+        const parent = e.target.closest('.tag-subtree.parent-tag')
+        parent.classList.toggle('expanded')
+        e.preventDefault()
+      })
+    }
+
+    // Get active tag from query string, then activate it.
+    const urlParams = new URLSearchParams(window.location.search)
+    const activeTag = urlParams.get('tag')
+    if (activeTag) {
+      let tag = document.querySelector(`.tag-subtree[data-tag="${activeTag}"]`)
+      if (tag) {
+        tag.querySelector('a').classList.add('active')
+        
+        while (tag) {
+          tag.classList.add('expanded')
+          tag = tag.parentElement.closest('.tag-subtree.parent-tag')
+        }
+      }
+    }
+  })()
+</script>
+
+<script async src="https://gcore.jsdelivr.net/npm/vanilla-lazyload@19.1/dist/lazyload.min.js"></script>
+<script>
+  // https://www.npmjs.com/package/vanilla-lazyload
+  // Set the options globally
+  // to make LazyLoad self-initialize
+  window.lazyLoadOptions = {
+    elements_selector: ".lazy",
+    callback_loaded: (el) => {
+      el.classList.add('loaded');
+      const wrapper = el.closest('.lazy-box');
+      const icon = wrapper?.querySelector('.lazy-icon');
+      if (icon) icon.remove();
+    }
+  };
+  // Listen to the initialization event
+  // and get the instance of LazyLoad
+  window.addEventListener(
+    "LazyLoad::Initialized",
+    function (event) {
+      window.lazyLoadInstance = event.detail.instance;
+    },
+    false
+  );
+  document.addEventListener('DOMContentLoaded', function () {
+    window.lazyLoadInstance?.update();
+  });
+
+  window.wrapLazyloadImages = (container) => {
+    if (typeof container === 'string') {
+      container = document.querySelector(container);
+    }
+    if (!container) return;
+    
+    const images = container.querySelectorAll('img');
+    images.forEach((img) => {
+      if (img.classList.contains('lazy')) return;
+
+      const src = img.getAttribute('src');
+      if (!src) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'lazy-box';
+
+      const newImg = img.cloneNode();
+      newImg.removeAttribute('src');
+      newImg.setAttribute('data-src', src);
+      newImg.classList.add('lazy');
+
+      const icon = document.createElement('div');
+      icon.className = 'lazy-icon';
+      if (def.loading) {
+        icon.style.backgroundImage = `url("${def.loading}")`;
+      }
+
+      wrapper.appendChild(newImg);
+      wrapper.appendChild(icon);
+
+      img.replaceWith(wrapper);
+    });
+
+    // 通知 LazyLoad 更新
+    if (window.lazyLoadInstance?.update) {
+      window.lazyLoadInstance.update();
+    }
+  }
+  
+</script>
+
+<!-- required -->
+<script src="/js/main.js?v=1.33.1" defer></script>
+
+<script type="text/javascript">
+  const applyTheme = (theme) => {
+    if (theme === 'auto') {
+      document.documentElement.removeAttribute('data-theme')
+    } else {
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+
+    // applyThemeToGiscus(theme)
+  }
+
+  // FIXME: 这会导致无法使用 preferred_color_scheme 以外的主题
+  const applyThemeToGiscus = (theme) => {
+    // theme = theme === 'auto' ? 'preferred_color_scheme' : theme
+    const cmt = document.getElementById('giscus')
+    if (cmt) {
+      // This works before giscus load.
+      cmt.setAttribute('data-theme', theme)
+    }
+
+    const iframe = document.querySelector('#comments > section.giscus > iframe')
+    if (iframe) {
+      // This works after giscus loaded.
+      const src = iframe.src
+      const newSrc = src.replace(/theme=[\w]+/, `theme=${theme}`)
+      iframe.src = newSrc
+    }
+  }
+
+  const switchTheme = () => {
+    // light -> dark -> auto -> light -> ...
+    const currentTheme = document.documentElement.getAttribute('data-theme')
+    let newTheme;
+    switch (currentTheme) {
+      case 'light':
+        newTheme = 'dark'
+        break
+      case 'dark':
+        newTheme = 'auto'
+        break
+      default:
+        newTheme = 'light'
+    }
+    applyTheme(newTheme)
+    window.localStorage.setItem('Stellar.theme', newTheme)
+    utils.dark.mode = newTheme === 'auto' ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : newTheme;
+    utils.dark.method.toggle.start();
+
+    const messages = {
+      light: `Switched to Light Mode`,
+      dark: `Switched to Dark Mode`,
+      auto: `Switched to Auto Mode`,
+    }
+    hud?.toast?.(messages[newTheme])
+  }
+
+  (() => {
+    // Apply user's preferred theme, if any.
+    const theme = window.localStorage.getItem('Stellar.theme')
+    if (theme !== null) {
+      applyTheme(theme)
+    } else {
+      utils.dark.mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    utils.dark.method.toggle.start();
+  })()
+</script>
+
+
+<!-- optional -->
+
+  <script type="module">
+  const el = document.querySelector('#comments #giscus');
+  util.viewportLazyload(el, load_discus, false);
+
+  function load_discus() {
+    if (!el) return;
+    try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.error(error);
+      }
+      const script = document.createElement('script');
+      script.async = true;
+      for (const key of Object.keys(el.attributes)) {
+        const attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+  }
+</script>
+
+
+
+
+<script defer>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.services = Object.assign({}, JSON.parse(`{"mdrender":{"js":"/js/services/mdrender.js"},"siteinfo":{"js":"/js/services/siteinfo.js","api":null},"ghinfo":{"js":"/js/services/ghinfo.js"},"rating":{"js":"/js/services/rating.js","api":"https://star-vote.xaox.cc/api/rating"},"vote":{"js":"/js/services/vote.js","api":"https://star-vote.xaox.cc/api/vote"},"sites":{"js":"/js/services/sites.js"},"friends":{"js":"/js/services/friends.js"},"friends_and_posts":{"js":"/js/services/friends_and_posts.js"},"timeline":{"js":"/js/services/timeline.js"},"fcircle":{"js":"/js/services/fcircle.js"},"weibo":{"js":"/js/services/weibo.js"},"memos":{"js":"/js/services/memos.js"},"voice":{"js":"/js/plugins/voice.js"},"video":{"js":"/js/plugins/video.js"},"download-file":{"js":"/js/plugins/download-file.js"},"twikoo":{"js":"/js/services/twikoo_latest_comment.js"},"waline":{"js":"/js/services/waline_latest_comment.js"},"artalk":{"js":"/js/services/artalk_latest_comment.js"},"giscus":{"js":"/js/services/giscus_latest_comment.js"},"contributors":{"edit_this_page":{"_posts/":null,"wiki/stellar/":"https://github.com/xaoxuu/hexo-theme-stellar-docs/blob/main/"},"js":"/js/services/contributors.js"}}`));
+    for (let id of Object.keys(ctx.services)) {
+      const js = ctx.services[id].js;
+      if (id == 'siteinfo') {
+        ctx.cardlinks = document.querySelectorAll('a.link-card[cardlink]');
+        if (ctx.cardlinks?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            setCardLink(ctx.cardlinks);
+          });
+        }
+      } else if (id == 'voice') {
+        ctx.voiceAudios = document.querySelectorAll('.voice>audio');
+        if (ctx.voiceAudios?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            createVoiceDom(ctx.voiceAudios);
+          });
+        }
+      } else if (id == 'video') {
+        ctx.videos = document.querySelectorAll('.video>video');
+        if (ctx.videos?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            videoEvents(ctx.videos);
+          });
+        }
+      } else if (id == 'download-file') {
+        ctx.files = document.querySelectorAll('.file');
+        if (ctx.files?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            downloadFileEvent(ctx.files);
+          });
+        }
+      } else {
+        const els = document.getElementsByClassName(`ds-${id}`);
+        if (els?.length > 0) {
+          utils.jq(() => {
+            if (id == 'timeline' || 'memos' || 'marked') {
+              utils.js(deps.marked).then(function () {
+                utils.js(js, { defer: true });
+              });
+            } else {
+              utils.js(js, { defer: true });
+            }
+          });
+        }
+      }
+    }
+
+    // chat iphone time
+    let phoneTimes = document.querySelectorAll('.chat .status-bar .time');
+
+    if (phoneTimes.length > 0) {
+      NowTime();
+      var date = new Date();
+      var sec = date.getSeconds();
+      var firstAdjustInterval = setInterval(firstAdjustTime, 1000 * (60 - sec));
+    }
+
+    function firstAdjustTime() {
+      NowTime();
+      clearInterval(firstAdjustInterval);
+      setInterval(NowTime, 1000 * 60);
+    }
+
+    function NowTime() {
+      for (let i = 0; i < phoneTimes.length; ++i) {
+        var timeSpan = phoneTimes[i];
+        var date = new Date();
+        var hour = date.getHours();
+        var min = date.getMinutes();
+        timeSpan.innerHTML = check(hour) + ":" + check(min);
+      }
+    };
+
+    function check(val) {
+      if (val < 10) {
+        return ("0" + val);
+      }
+      return (val);
+    }
+
+    // chat quote
+    const chat_quote_obverser = new IntersectionObserver((entries, observer) => {
+      entries.filter((entry) => { return entry.isIntersecting }).sort((a, b) => a.intersectionRect.y !== b.intersectionRect.y ? a.intersectionRect.y - b.intersectionRect.y : a.intersectionRect.x - b.intersectionRect.x).forEach((entry, index) => {
+          observer.unobserve(entry.target);
+          setTimeout(() => {
+            entry.target.classList.add('quote-blink');
+            setTimeout(() => {
+              entry.target.classList.remove('quote-blink');
+            }, 1000);
+          }, Math.max(100, 16) * (index + 1));
+        });
+    });
+
+    var chatQuotes = document.querySelectorAll(".chat .talk .quote");
+    chatQuotes.forEach((quote) => {
+      quote.addEventListener('click', function () {
+        var chatCellDom = document.getElementById("quote-" + quote.getAttribute("quotedCellTag"));
+        if (chatCellDom) {
+          var chatDiv = chatCellDom.parentElement;
+          var mid = chatDiv.clientHeight / 2;
+          var offsetTop = chatCellDom.offsetTop;
+          if (offsetTop > mid - chatCellDom.clientHeight / 2) {
+            chatDiv.scrollTo({
+              top: chatCellDom.offsetTop - mid + chatCellDom.clientHeight / 2,
+              behavior: "smooth"
+            });
+          } else {
+            chatDiv.scrollTo({
+              top: 0,
+              behavior: "smooth"
+            });
+          }
+          chat_quote_obverser.observe(chatCellDom);
+        }
+      });
+    });
+  });
+</script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.search = {
+      path: `/search.json`,
+    }
+    utils.js('/js/search/local-search.js', { defer: true });
+  });
+</script><script>
+  window.FPConfig = {
+    delay: 0,
+    ignoreKeywords: [],
+    maxRPS: 5,
+    hoverDelay: 25
+  };
+</script>
+<script defer src="https://cdn.bootcdn.net/ajax/libs/flying-pages/2.1.2/flying-pages.min.js"></script><script>
+  ctx.fancybox = {
+    selector: ``,
+    css: `https://cdn.bootcdn.net/ajax/libs/fancyapps-ui/5.0.22/fancybox/fancybox.min.css`,
+    js: `https://cdn.bootcdn.net/ajax/libs/fancyapps-ui/5.0.22/fancybox/fancybox.umd.min.js`
+  };
+  var selector = '[data-fancybox]:not(.error), .with-fancybox .atk-content img:not([atk-emoticon])';
+  if (ctx.fancybox.selector) {
+    selector += `, ${ctx.fancybox.selector}`
+  }
+  var needFancybox = document.querySelectorAll(selector).length !== 0;
+  if (!needFancybox) {
+    const memos = document.getElementsByClassName('ds-memos');
+    if (memos != undefined && memos.length > 0) {
+      needFancybox = true;
+    }
+    const fancybox = document.getElementsByClassName('with-fancybox');
+    if (fancybox != undefined && fancybox.length > 0) {
+      needFancybox = true;
+    }
+  }
+  if (needFancybox) {
+    utils.css(ctx.fancybox.css);
+    utils.js(ctx.fancybox.js, { defer: true }).then(function () {
+      Fancybox.bind(selector, {
+        hideScrollbar: false,
+        Thumbs: {
+          autoStart: false,
+        },
+        caption: (fancybox, slide) => {
+          return slide.triggerEl.alt || slide.triggerEl.dataset.caption || null
+        }
+      });
+    })
+  }
+</script>
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    const swiper_api = document.getElementById('swiper-api');
+    if (swiper_api != undefined) {
+      utils.css(`https://unpkg.com/swiper@10.3/swiper-bundle.min.css`);
+      utils.js(`https://unpkg.com/swiper@10.3/swiper-bundle.min.js`, { defer: true }).then(function () {
+        const effect = swiper_api.getAttribute('effect') || '';
+        var swiper = new Swiper('.swiper#swiper-api', {
+          slidesPerView: 'auto',
+          spaceBetween: 8,
+          centeredSlides: true,
+          effect: effect,
+          rewind: true,
+          pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+          },
+          navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+          },
+        });
+      })
+    }
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    window.codeElements = document.querySelectorAll('.code');
+    if (window.codeElements.length > 0) {
+      ctx.copycode = {
+        default_text: `Copy`,
+        success_text: `Copied`,
+        toast: `复制成功`,
+      };
+      utils.js('/js/plugins/copycode.js');
+    }
+  });
+</script>
+
+
+<!-- inject -->
+
+</div></body></html>
