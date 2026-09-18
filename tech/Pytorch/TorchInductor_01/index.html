@@ -1,0 +1,1177 @@
+
+<!DOCTYPE html><html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="hexo-theme" content="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.33.1" theme-name="Stellar" theme-version="1.33.1">
+  
+  
+  <meta name="generator" content="Hexo 8.1.1">
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  <link rel="preconnect" href="https://gcore.jsdelivr.net" crossorigin><link rel="preconnect" href="https://unpkg.com" crossorigin><link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin>
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000">
+  <meta name="theme-color" content="#f9fafb">
+  <title>「Inductor-1」从torch.compile开始认识整个流程 - Curio.OoO</title>
+
+  
+    <meta name="description" content="从顶层视图来认识整个流程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="「Inductor-1」从torch.compile开始认识整个流程">
+<meta property="og:url" content="https://curioyang.top/tech/Pytorch/TorchInductor_01/">
+<meta property="og:site_name" content="Curio.OoO">
+<meta property="og:description" content="从顶层视图来认识整个流程">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2026-08-18T08:44:00.000Z">
+<meta property="article:modified_time" content="2026-08-18T08:44:00.000Z">
+<meta property="article:author" content="Curio Yang">
+<meta property="article:tag" content="inductor">
+<meta property="article:tag" content="pytorch">
+<meta name="twitter:card" content="summary">
+  
+  
+  
+  <meta name="keywords" content="pytorch,inductor">
+
+  <!-- feed -->
+  
+
+  <link rel="stylesheet" href="/css/main.css?v=1.33.1">
+
+
+  
+
+  
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Curio Yang","sameAs":[]},"dateCreated":"2026-08-18T16:44:00+08:00","dateModified":"2026-08-18T16:44:00+08:00","datePublished":"2026-08-18T16:44:00+08:00","description":"","headline":"「Inductor-1」从torch.compile开始认识整个流程","mainEntityOfPage":{"@type":"WebPage","@id":"https://curioyang.top/tech/Pytorch/TorchInductor_01/"},"publisher":{"@type":"Organization","name":"Curio Yang","sameAs":[]},"url":"https://curioyang.top/tech/Pytorch/TorchInductor_01/","keywords":"pytorch, inductor","image":[]}</script>
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/xaoxuu/favicon/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/xaoxuu/favicon/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/xaoxuu/favicon/favicon-16x16.png"><link rel="manifest" href="/assets/xaoxuu/favicon/site.webmanifest"><link rel="shortcut icon" href="/assets/xaoxuu/favicon/favicon.ico"><meta name="theme-color" content="#f8f8f8"><link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-screen-webfont/1.7.0/style.min.css" media="all" /><style>
+.page-footer .text {
+  text-align: center;
+}
+</style>
+
+</head>
+<body><div class="sitebg"><div class="siteblur"></div></div>
+
+<div class="l_body content" id="start" layout="post" type="tech" ><aside class="l_left"><div class="sidebg"></div><div class="leftbar-container">
+
+
+<header class="header"><div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="https://avatars.githubusercontent.com/u/39184746?v=4" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></a><a class="title" href="/"><div class="main">Curio.OoO</div><div class="sub normal cap">生活未必事事如愿</div><div class="sub hover cap" style="opacity:0"> 成长必定步步坎坷</div></a></div></header>
+
+<div class="nav-area">
+
+<nav class="menu dis-select"><a class="nav-item" title="主页" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item" title="技术相关" href="/tech/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item" title="生活点滴" href="/life/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a><a class="nav-item" title="个人项目" href="/wiki/" style="color:#2196f3"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a></nav>
+</div>
+<div class="widgets">
+<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" placeholder="Search"></form><div id="search-result"></div><div class="search-no-result">No Results!</div></div>
+
+<widget class="widget-wrapper related post-list"><div class="widget-header dis-select"><span class="name">Topic: PyTorch</span></div><div class="widget-body"><a class="item" href="/tech/Pytorch/TorchInductor_02/"><span class="title">「Inductor-2」Inductor调试工具</span></a><a class="item active" href="/tech/Pytorch/TorchInductor_01/"><span class="title">「Inductor-1」从torch.compile开始认识整个流程</span><svg class="active-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M21 11.098v4.993c0 3.096 0 4.645-.734 5.321c-.35.323-.792.526-1.263.58c-.987.113-2.14-.907-4.445-2.946c-1.02-.901-1.529-1.352-2.118-1.47a2.225 2.225 0 0 0-.88 0c-.59.118-1.099.569-2.118 1.47c-2.305 2.039-3.458 3.059-4.445 2.945a2.238 2.238 0 0 1-1.263-.579C3 20.736 3 19.188 3 16.091v-4.994C3 6.81 3 4.666 4.318 3.333C5.636 2 7.758 2 12 2c4.243 0 6.364 0 7.682 1.332C21 4.665 21 6.81 21 11.098" opacity=".5"/><path fill="currentColor" d="M9 5.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5z"/></svg></a><a class="item" href="/tech/Pytorch/TorchInductor_00/"><span class="title">「Inductor-0」TorchInductor-介绍</span></a><a class="item" href="/tech/Pytorch/PyTorch%20profile%20custom%20backend%20Ops/"><span class="title">PyTorch profiler custom backend Ops</span></a><a class="item" href="/tech/Pytorch/Pytorch%20Knowledge/"><span class="title">Pytorch知识记录</span></a><a class="item" href="/tech/Pytorch/Pytorch%20custom%20backend%20debug/"><span class="title">Pytorch自定义后端精度调试</span></a></div></widget>
+
+<widget class="widget-wrapper recent post-list"><div class="widget-header dis-select"><span class="name">Recent Update</span></div><div class="widget-body fs14"><a class="item title" href="/tech/Pytorch/TorchInductor_02/"><span class="title">「Inductor-2」Inductor调试工具</span></a><a class="item title" href="/tech/Pytorch/TorchInductor_01/"><span class="title">「Inductor-1」从torch.compile开始认识整个流程</span></a><a class="item title" href="/tech/Pytorch/TorchInductor_00/"><span class="title">「Inductor-0」TorchInductor-介绍</span></a><a class="item title" href="/tech/Pytorch/PyTorch%20profile%20custom%20backend%20Ops/"><span class="title">PyTorch profiler custom backend Ops</span></a><a class="item title" href="/tech/Pytorch/Pytorch%20Knowledge/"><span class="title">Pytorch知识记录</span></a><a class="item title" href="/tech/Pytorch/Pytorch%20custom%20backend%20debug/"><span class="title">Pytorch自定义后端精度调试</span></a></div></widget>
+</div>
+<footer class="footer dis-select"><div class="social-wrap"><a class="social" href="https://github.com/curioyang" target="_blank" rel="external nofollow noopener noreferrer"><img src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/08a41b181ce68.svg"/></a></div></footer>
+</div></aside><div class="l_main" id="main">
+
+
+
+
+
+<div class="article banner top">
+  <div class="content">
+    <div class="top bread-nav footnote"><div class="left"><div class="flex-row" id="breadcrumb"><a class="cap breadcrumb" href="/">Home</a>
+<span class="sep"></span><a class="cap breadcrumb" id="menu" href="/topic/">Topic</a><span class="sep"></span><a class="cap breadcrumb" id="proj" href="/tech/Pytorch/TorchInductor_02/">PyTorch</a></div>
+<div class="flex-row" id="post-meta"><span class="text created">Posted on: <time datetime="2026-08-18T08:44:00.000Z">2026-08-18</time></span><span class="sep updated"></span><span class="text updated">Updated on: <time datetime="2026-08-18T08:44:00.000Z">2026-08-18</time></span></div></div></div>
+    
+    <div class="bottom only-title">
+      
+      <div class="text-area">
+        <h1 class="text title"><span>「Inductor-1」从torch.compile开始认识整个流程</span></h1>
+        
+      </div>
+    </div>
+    
+  </div>
+  </div><article class="md-text content"><!-- 摘要部分（可选） -->
+<span id="more"></span>
+
+<blockquote>
+<p>本文基于 PyTorch <code>2.14.0a0</code>（commit <code>8b5ec6266b0</code>）撰写，文中涉及的代码锚点与行为描述均以该 commit 为准。</p>
+</blockquote>
+<h2 id="整体流程"><a href="#整体流程" class="headerlink" title="整体流程"></a>整体流程</h2><pre class="mermaid">flowchart TD
+    A[用户编写的 PyTorch 代码] --> B[TorchDynamo<br>图捕获前端]
+    
+    B --> C{是否满足<br>Guard 条件?}
+    C -- 是 --> D[生成 FX Graph]
+    C -- 否 --> E["重新编译<br>（形状/设备等变化）"]
+    E --> B
+    
+    B --> F[遇到 Graph Break?]
+    F -- 是 --> G[切割图<br>回退到 Eager 模式]
+    G --> D
+    F -- 否 --> D
+    
+    D --> H[AOTAutograd<br>提前自动微分与算子分解]
+    H --> I[生成前向+反向联合图<br>并分解复杂算子]
+    
+    I --> J[Inductor<br>后端编译器]
+    J --> K["转换为 Loop-based IR<br>（展开形状、循环）"]
+    K --> L["调度器（Scheduler）<br>算子融合、内存规划"]
+    L --> M["代码生成器（Codegen）<br>生成内核代码"]
+    
+    M --> N{目标硬件?}
+    N -- GPU --> O[生成 Triton 内核<br>并通过 Triton 编译]
+    N -- CPU --> P[生成 C++ 内核<br>并通过编译器编译]
+    
+    O --> Q[加载并执行内核]
+    P --> Q
+    Q --> R[输出结果]
+    
+    style A fill:#f9d0c4,stroke:#333
+    style B fill:#b5e7a0,stroke:#333
+    style H fill:#b5e7a0,stroke:#333
+    style J fill:#b5e7a0,stroke:#333
+    style Q fill:#f9d0c4,stroke:#333</pre>
+<p>进入<code>torch.compile()</code>之后的主要功能分为三部分：<code>Dynamo</code>,<code>AOTAutoGrad</code>,<code>Inductor</code>。三者分别对应不同的功能</p>
+<h2 id="1-TorchDynamo"><a href="#1-TorchDynamo" class="headerlink" title="1. TorchDynamo"></a>1. TorchDynamo</h2><p>目标是在不改变用户体验的前提下，将用户的PyTorch代码捕获生成一个可优化的FX图。相比于torch.jit.trace和torch.jit.script，Dynamo可以更加透明的支持标准Python代码，包括各种条件判断、循环、函数调用等。</p>
+<h3 id="1-1-核心机制"><a href="#1-1-核心机制" class="headerlink" title="1.1 核心机制"></a>1.1 核心机制</h3><p>TorchDynamo不会直接解析源代码，而是在CPython的解释器层面工作，替换当前函数的frame求值函数，获得对每条Python字节码的控制，流程如下：</p>
+<h4 id="1-1-1-拦截字节码"><a href="#1-1-1-拦截字节码" class="headerlink" title="1.1.1 拦截字节码"></a>1.1.1 拦截字节码</h4><p>当用户调用torch.compile 或者使用torch.compile 装饰器修饰函数的时候，Dynamo会将函数的__Code__对象替换为一个包装版本，时期运行时进入Dynamo的frame求值器，之后逐条分析函数的字节码指令，例如 <code>LOAD_FAST</code>, <code>BINARY_OP</code>, <code>CALL_FUNCTION</code>等。</p>
+<h4 id="1-1-2-建立符号环境"><a href="#1-1-2-建立符号环境" class="headerlink" title="1.1.2 建立符号环境"></a>1.1.2 建立符号环境</h4><p>Dynamo维护一个映射： 变量名-&gt;Proxy对象。Proxy是对FX图节点的封装，代表改变量在计算图中的符号值。当遇到例如<code>x = a + b</code>的时候不会执行实际的加法计算，而是通过以下步骤来构建出计算图：</p>
+<ol>
+<li>从环境中查找<code>a</code>和<code>b</code> 对应的proxy，（或者常量）</li>
+<li>向FX图中添加一个<code>call_function(target=operator.add, args=(proxy_a, proxy_b))</code> 节点。</li>
+<li>创建一个新的Proxy作为结果，并绑定到<code>x</code>变量上。<br>这样，这句<code>x = a + b</code>就加入了这个计算图，而不是一句实际的推理代码了。</li>
+</ol>
+<h4 id="1-1-3-处理Tensor-Op"><a href="#1-1-3-处理Tensor-Op" class="headerlink" title="1.1.3 处理Tensor Op"></a>1.1.3 处理Tensor Op</h4><p>当遇到PyTorch函数的时候，例如<code>torch.add</code>,<code>torch.nn.functional.relu</code>或者<code>tensor.sum()</code>时， 会执行如下逻辑：</p>
+<ul>
+<li>如果当前函数的输入包含一个Proxy，那么这行调用就会被记录为一个FX节点(其实就是图上的一个算子或者函数(本质还是算子))</li>
+<li>如果输入全是const，那么就会执行constant fold，直接将计算后的结果返回</li>
+</ul>
+<h4 id="1-1-4-处理控制流"><a href="#1-1-4-处理控制流" class="headerlink" title="1.1.4 处理控制流"></a>1.1.4 处理控制流</h4><p>并非所有的Python代码都可以被转换为计算图，例如各种控制流、循环等操作，这些操作通常依赖运行期间的真实值，(当然部分循环不依赖运行期的值，是可以直接展开循环的，例如Decode Layer展开)。这时Dynamo的处理逻辑为：</p>
+<ul>
+<li>条件分支是静态可判断的，那么会直接计算出真实运行需要走哪个分支，然后只将改分支的代码加入到计算图中</li>
+<li>条件分支依赖运行时tensor，Dynamo无法在编译期确定真实的推理路径，就会触发<code>Graph Break</code>，停止当前的图构建，将已经捕获的部分编译为一个子图，然后这个条件分支部分的逻辑使用<code>eager mode</code>来在运行期进行真实的分支判断，条件分支之后的代码会继续捕获，然后生成多个子图进行编译。</li>
+<li>循环次数是静态的，那么就会循环展开，将所有的代码加入到图中，例如<code>decode layer</code>。</li>
+<li>循环次数无法确定时，也就是依赖tensor的shape，那么会尝试使用Proxyshape来展开循环，或者触发<code>Graph Break</code></li>
+</ul>
+<h4 id="1-1-5-支持Python的数据结构"><a href="#1-1-5-支持Python的数据结构" class="headerlink" title="1.1.5 支持Python的数据结构"></a>1.1.5 支持Python的数据结构</h4><p>Python中通常都存在较多的<code>List</code>,<code>Tuple</code>,<code>Dict</code>,等数据结构，Dynamo会在符号环境中维护这些抽象表示，相关的索引、迭代、解包等操作，也会在符号层面模拟，然后产生图节点：</p>
+<ul>
+<li><code>x = [a, b]</code>会常见一个包含两个Proxy的<code>ListProxy</code></li>
+<li><code>y = x[0]</code>会直接返回<code>a</code> 的proxy，而不会产生图节点。</li>
+<li>如果是动态的索引操作，触发<code>GraphBreak</code>。</li>
+</ul>
+<h4 id="1-1-6-Guard机制"><a href="#1-1-6-Guard机制" class="headerlink" title="1.1.6 Guard机制"></a>1.1.6 Guard机制</h4><p>Dynamo 生成的图是针对特定执行条件优化的，需要记录各种的shape等条件，如果后续调用时这些信息出现了变化，那么就无法利用此前已经编译好的产物，此时需要重新编译。会触发Guard的信息包括：</p>
+<ul>
+<li>tensor的shape、stride、dtype、device. </li>
+<li>tensor的dtype和value被用来控制流程</li>
+<li>全局变量的值被访问<br>可以通过工具来查看生成的Guards，<code>torch._dynamo.explain</code></li>
+</ul>
+<h4 id="1-1-7-Graph-Break"><a href="#1-1-7-Graph-Break" class="headerlink" title="1.1.7 Graph Break"></a>1.1.7 Graph Break</h4><p>以下几种情况会触发GraphBreak：</p>
+<ol>
+<li>调用未被注册为可追踪的Python函数</li>
+<li>依赖tensor真实值的控制流</li>
+<li>执行不支持的Python操作，例如打印、异常处理<br>图断裂后会导致性能降低，Dynamo会尽量通过内联函数、自动处理常见的Python模式来减少断裂，某些情况则无法避免了。<code>torch._dynamo.explain</code>可以查看图断裂的位置和原因。</li>
+</ol>
+<p>开发提示：</p>
+<ol>
+<li>通过添加 <code>@torch._dynamo.allow_in_graph</code> 可以声明函数为可追踪</li>
+<li>注册自定义函数到Dynamo追踪表</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch._dynamo <span class="keyword">as</span> dynamo</span><br><span class="line"><span class="meta">@dynamo.register(<span class="params"><span class="string">&quot;my_custom_fn&quot;</span></span>)</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">my_custom_fn</span>(<span class="params">x</span>): 	</span><br><span class="line">	<span class="keyword">return</span> x.<span class="built_in">sum</span>()</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>使用 <code>torch.compile</code> 的 <code>fullgraph=True</code></li>
+<li>使用 <code>torch._dynamo.disable</code> 排除特定函数</li>
+</ol>
+<h3 id="1-2-输出FX-GraphModule"><a href="#1-2-输出FX-GraphModule" class="headerlink" title="1.2 输出FX GraphModule"></a>1.2 输出FX GraphModule</h3><p>经上述步骤，Dynamo最终产出一个<code>torch.fx.GraphModule</code>，图中包含：</p>
+<ol>
+<li>ATen算子调用</li>
+<li>Python函数调用，自定义函数会尝试内联或者保留</li>
+<li>可能存在多子图</li>
+</ol>
+<h3 id="1-3-关键优化和特性"><a href="#1-3-关键优化和特性" class="headerlink" title="1.3 关键优化和特性"></a>1.3 关键优化和特性</h3><ul>
+<li><strong>函数内联</strong></li>
+<li>全局变量和闭包处理：Guard可以捕获闭包中引用的变量，并进行Guard来检查他们是否变化</li>
+<li><code>torch._dynamo.optimize</code>装饰器：允许用户手动控制编译过程。</li>
+<li>动态shape支持：通过<code>torch._dynamo.mark_dynamic</code>可以标记某些动态维度为动态，最终使用ProxyShape来生成更通用的代码。</li>
+</ul>
+<hr>
+<h2 id="2-AOTAutoGrad"><a href="#2-AOTAutoGrad" class="headerlink" title="2. AOTAutoGrad"></a>2. AOTAutoGrad</h2><p>Ahead-of-Time Autograd 是 <code>torch.compile()</code> 流水线的第二个核心阶段，位于 Dynamo 之后。它的职责一句话概括：<strong>在编译期把反向计算图也生成出来，与前向图合并，并完成算子分解，为 Inductor 提供一张”纯函数、无副作用、可任意融合”的完整计算图</strong>。</p>
+<p>为什么这件事必须发生在编译期，而不是直接复用 PyTorch 现有的 eager 模式 autograd？这就是理解 AOTAutograd 的起点。</p>
+<h3 id="2-1-为什么需要-AOTAutograd"><a href="#2-1-为什么需要-AOTAutograd" class="headerlink" title="2.1 为什么需要 AOTAutograd"></a>2.1 为什么需要 AOTAutograd</h3><p><strong>Eager 模式的 autograd 是一个”运行时”机制</strong>：</p>
+<ul>
+<li>前向执行时，每个算子都会把”如何求导”记录到一张运行时动态构建的图上（autograd graph）</li>
+<li>反向时，autograd 引擎从 loss 出发，沿着这张图逐算子反向传播</li>
+<li>为了反向，前向的每个中间结果都必须保存在内存里，直到反向用完</li>
+</ul>
+<p>这个机制对编译器来说有两个致命问题：</p>
+<ol>
+<li><strong>反向图在编译期不可见</strong>：Inductor 只能看到前向图，反向是运行时”黑盒”，无法提前优化</li>
+<li><strong>图里有”副作用”</strong>：<code>x.add_(1)</code> 这样的原地修改、<code>view/reshape</code> 这样的视图操作，都会限制编译器的融合和重排自由</li>
+</ol>
+<p>AOTAutograd 的解决方案是：<strong>把求导过程从运行时搬到编译期</strong>。Dynamo 给出前向 FX 图后，AOTAutograd 直接对这张图做”符号求导”，展开出反向图，然后把前向+反向合并成一张 <strong>Joint Graph</strong>，交给 Inductor。</p>
+<pre class="mermaid">flowchart LR
+    A[Dynamo 输出<br>前向 FX 图] --> B[函数化<br>Functionalization]
+    B --> C[符号求导<br>生成反向图]
+    C --> D[Joint Graph<br>前向 + 反向合并]
+    D --> E[算子分解<br>Decomposition]
+    E --> F[交给 Inductor]</pre>
+
+<h3 id="2-2-核心步骤"><a href="#2-2-核心步骤" class="headerlink" title="2.2 核心步骤"></a>2.2 核心步骤</h3><h4 id="2-2-1-函数化（Functionalization）"><a href="#2-2-1-函数化（Functionalization）" class="headerlink" title="2.2.1 函数化（Functionalization）"></a>2.2.1 函数化（Functionalization）</h4><p>图编译器（Inductor）只理解<strong>纯函数</strong>：输入进来，输出出去，中间没有任何”修改现有数据”的操作。但 PyTorch 代码里充满了 in-place 操作，例如：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">x.add_(<span class="number">1</span>)          <span class="comment"># 原地加 1</span></span><br><span class="line">x.relu_()          <span class="comment"># 原地 relu</span></span><br><span class="line">y = x.view(<span class="number">2</span>, <span class="number">3</span>)   <span class="comment"># view 返回共享内存的新 tensor</span></span><br></pre></td></tr></table></figure>
+
+<p>函数化的做法是用 <code>FunctionalTensor</code>（<code>torch/_subclasses/functional_tensor.py</code>）拦截这些操作，改写成等价的纯函数形式：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># x.add_(1) 变成：</span></span><br><span class="line">tmp = x + <span class="number">1</span></span><br><span class="line">x.copy_(tmp)       <span class="comment"># 最终的写回保留，但语义上&quot;读旧值 → 算新值 → 写回&quot;是显式的</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># view 则保留为视图操作，但会额外记录它与原始 tensor 的关联，</span></span><br><span class="line"><span class="comment"># 保证后续任何对 y 的修改都能被追踪回 x</span></span><br></pre></td></tr></table></figure>
+
+<p>对 Inductor 的意义：它拿到的图里<strong>没有任何隐式副作用</strong>，融合、重排、内存复用（memory planning）都可以放心做。这也是为什么 Inductor 的代码里会看到这样的注释（<code>compile_fx.py</code> 中）：「by the time we’re in inductor, we assume that AOTAutograd has already “taken care” of autograd」——Inductor 从来不需要理解 autograd 的存在。</p>
+<h4 id="2-2-2-符号求导，生成反向图"><a href="#2-2-2-符号求导，生成反向图" class="headerlink" title="2.2.2 符号求导，生成反向图"></a>2.2.2 符号求导，生成反向图</h4><p>函数化之后，AOTAutograd 对前向图上的每个算子查它的反向规则（例如 <code>add</code> 的反向是把梯度原样传回两个输入），从输出端向输入端”反向追踪”，构建出一张完整的反向 FX 图。注意这不是运行时数值求导，而是<strong>编译期展开求导过程</strong>——反向图也是图，同样可以交给编译器优化。</p>
+<h4 id="2-2-3-Joint-Graph：前向-反向合并成一张图"><a href="#2-2-3-Joint-Graph：前向-反向合并成一张图" class="headerlink" title="2.2.3 Joint Graph：前向+反向合并成一张图"></a>2.2.3 Joint Graph：前向+反向合并成一张图</h4><p>反向图生成后，AOTAutograd 把前向图和反向图拼成一张联合图。这样做的目的是让优化空间最大化：</p>
+<ul>
+<li>前向和反向重复的计算可以只算一次（消除公共子表达式）</li>
+<li>跨前反向边界的算子融合成为可能（例如前向的激活函数可以直接融合进反向的使用点）</li>
+<li>在图层面统一做死代码消除等优化</li>
+</ul>
+<blockquote>
+<p>注意：Joint Graph 的”切分”（把它重新拆回前向子图和反向子图）这个动作在不同版本的 PyTorch 中位置发生过变化。经典实现在 AOTAutograd 内部（<code>torch/_functorch/partitioners.py</code> 的 <code>min_cut_rematerialization_partition</code>），而当前版本中，Joint Graph 会直接交给 Inductor，由 Inductor 在 <code>joint_graph_passes</code>（<code>torch/_inductor/fx_passes/joint_graph.py</code>）中处理前反向的拆分与融合。学习时以本版本代码为准。</p>
+</blockquote>
+<h4 id="2-2-4-激活内存：保存还是重算？"><a href="#2-2-4-激活内存：保存还是重算？" class="headerlink" title="2.2.4 激活内存：保存还是重算？"></a>2.2.4 激活内存：保存还是重算？</h4><p>前向计算出的中间结果（激活值），反向计算时需要再次用到。这里有一个经典权衡：</p>
+<ul>
+<li><strong>保存</strong>：前向结果存在内存里，反向直接用 → 省计算，费内存</li>
+<li><strong>重算（recompute）</strong>：反向时重新算一遍前向的中间结果 → 省内存，费计算</li>
+</ul>
+<p>这个决策由 <code>torch._functorch.config.activation_memory_budget</code>（默认 1.0，即全部保存）等配置控制。对自研硬件来说，当片上内存紧张时，这是一个重要的调优旋钮。</p>
+<h3 id="2-3-算子分解（Decomposition）——-与-Inductor-关系最大的一节"><a href="#2-3-算子分解（Decomposition）——-与-Inductor-关系最大的一节" class="headerlink" title="2.3 算子分解（Decomposition）—— 与 Inductor 关系最大的一节"></a>2.3 算子分解（Decomposition）—— 与 Inductor 关系最大的一节</h3><h4 id="为什么分解"><a href="#为什么分解" class="headerlink" title="为什么分解"></a>为什么分解</h4><p>文章开头提到”算子拆分之后会多了很多可融合的 loop”。展开说：PyTorch 的高层算子（如 <code>addmm</code>、<code>layer_norm</code>、<code>softmax</code>）在 ATen 里是一个个”黑盒”实现，Inductor 无法看到内部结构，也就无法把它们内部的逐元素计算和周围的算子融合。把它们<strong>分解成基础算子</strong>（加减乘除、sum、max 等）之后，图上的小算子变多了，Inductor 的融合器可以把它们和相邻算子重新组合成更高效的内核。</p>
+<h4 id="两张分解表"><a href="#两张分解表" class="headerlink" title="两张分解表"></a>两张分解表</h4><p>分解不是 AOTAutograd 一个组件的事，实际存在两层：</p>
+<table>
+<thead>
+<tr>
+<th>分解表</th>
+<th>位置</th>
+<th>使用时机</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>core_aten_decompositions</code></td>
+<td><code>torch/_decomp/__init__.py</code></td>
+<td>AOTAutograd 阶段，对 Joint Graph 分解</td>
+</tr>
+<tr>
+<td>Inductor 自己的分解表</td>
+<td><code>torch/_inductor/decomposition.py</code></td>
+<td>Inductor 的 post_grad 阶段</td>
+</tr>
+</tbody></table>
+<h4 id="分解是”有条件”的——这正是自研硬件的控制点"><a href="#分解是”有条件”的——这正是自研硬件的控制点" class="headerlink" title="分解是”有条件”的——这正是自研硬件的控制点"></a>分解是”有条件”的——这正是自研硬件的控制点</h4><p>分解函数返回 <code>NotImplemented</code> 就表示”这个算子我不拆”。以 <code>decomposition.py</code> 中的 <code>addmm</code> 为例（<code>torch/_inductor/decomposition.py</code>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@register_decomposition(<span class="params">[aten.addmm]</span>)</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">addmm</span>(<span class="params">self, mat1, mat2, ...</span>):</span><br><span class="line">    <span class="comment"># 只有部分形状（matvec 等）才值得拆成 mul + sum</span></span><br><span class="line">    <span class="keyword">if</span> mat1.device.<span class="built_in">type</span> <span class="keyword">not</span> <span class="keyword">in</span> [<span class="string">&quot;cpu&quot;</span>, <span class="string">&quot;mps&quot;</span>]:</span><br><span class="line">        <span class="comment"># 非 CPU/MPS 设备默认返回 NotImplemented —— 不拆！</span></span><br><span class="line">        ...</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NotImplemented</span></span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
+
+<p>注意这里的 device 判断：<strong>matmul 类算子在非 CPU&#x2F;MPS 设备上默认不分解</strong>。这就是前面 NPU 话题里讲过的第一道关卡——如果你在做自研硬件适配，希望某些算子（比如有专用加速单元的 matmul）保持原样不被拆成加减乘除，控制点就是这里：在分解表中让对应算子在你的设备上返回 <code>NotImplemented</code>。第二道关卡在 lowering 层（算子是被内联成循环还是保留为外部调用），那属于 Inductor 的内容，后面章节展开。</p>
+<h3 id="2-4-Inductor-在-AOTAutograd-输出上的介入点"><a href="#2-4-Inductor-在-AOTAutograd-输出上的介入点" class="headerlink" title="2.4 Inductor 在 AOTAutograd 输出上的介入点"></a>2.4 Inductor 在 AOTAutograd 输出上的介入点</h3><p>AOTAutograd 做完之后，Inductor 接手的是一张（或几张）纯函数 FX 图。Inductor 在其上做的事情按顺序是：</p>
+<ol>
+<li><strong>Joint Graph Passes</strong>（<code>torch/_inductor/fx_passes/joint_graph.py</code>）：在前向+反向联合图上做跨边界优化（模式匹配、常量折叠等）</li>
+<li><strong>前向&#x2F;反向子图各自的 Post-Grad Passes</strong>：分解、融合模式匹配、冻结等</li>
+<li><strong>Lowering + Scheduler + Codegen</strong>：后面的章节展开</li>
+</ol>
+<p>如果你需要在这条链路上插入自己的图变换，Inductor 提供了官方的自定义 pass 挂载点（<code>torch/_inductor/config.py</code> 中）：</p>
+<table>
+<thead>
+<tr>
+<th>挂载点</th>
+<th>时机</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>joint_custom_pre_pass</code> &#x2F; <code>joint_custom_post_pass</code></td>
+<td>Joint Graph 优化前后</td>
+</tr>
+<tr>
+<td><code>post_grad_custom_pre_pass</code> &#x2F; <code>post_grad_custom_post_pass</code></td>
+<td>前向&#x2F;反向子图优化前后</td>
+</tr>
+</tbody></table>
+<p>实现方式是实现 <code>torch._inductor.custom_graph_pass.CustomGraphPass</code> 接口，然后赋给对应的 config 项。</p>
+<h4 id="三层图变换的归属（小结）"><a href="#三层图变换的归属（小结）" class="headerlink" title="三层图变换的归属（小结）"></a>三层图变换的归属（小结）</h4><ul>
+<li><strong>Dynamo</strong> 管”抓图”：把 Python 代码变成 FX 图</li>
+<li><strong>AOTAutograd</strong> 管”造反向图和拆算子”：函数化、符号求导、Joint Graph、算子分解</li>
+<li><strong>Inductor</strong> 管”融合和生成代码”：图优化 pass、Lowering、Scheduler、Codegen</li>
+</ul>
+<h3 id="2-5-调试-AOTAutograd"><a href="#2-5-调试-AOTAutograd" class="headerlink" title="2.5 调试 AOTAutograd"></a>2.5 调试 AOTAutograd</h3><ul>
+<li>设置 <code>TORCH_LOGS=&quot;+aot&quot;</code> 可以打印 AOTAutograd 阶段的日志</li>
+<li><code>aot_config.aot_id</code>（<code>torch/_functorch/_aot_autograd/graph_capture.py</code>）支持导出调试图</li>
+<li>用我们自己写的调试脚本 <code>agent_space/inductor_debug.py --breakpoint</code> 在 <code>_compile_fx_inner</code> 处停住时，看到的 <code>gm</code> 就是 AOTAutograd 处理完交给 Inductor 的图——前向子图或 Joint Graph，这是我们观察 AOTAutograd 输出最直接的方式</li>
+</ul>
+<hr>
+<h2 id="3-Inductor"><a href="#3-Inductor" class="headerlink" title="3. Inductor"></a>3. Inductor</h2><p>Inductor 是 <code>torch.compile()</code> 的默认后端，也是我们整个系列的主角。前面两节讲了 Dynamo 如何”抓图”、AOTAutograd 如何”造反向图和拆算子”，从这一节开始，图真正进入编译。</p>
+<h3 id="3-1-Inductor-是什么"><a href="#3-1-Inductor-是什么" class="headerlink" title="3.1 Inductor 是什么"></a>3.1 Inductor 是什么</h3><p>一句话：<strong>Inductor 是一个输入 FX 图、输出可执行代码的后端编译器</strong>。它吃下 AOTAutograd 产出的纯函数图，吐出可以直接调用的 Python 模块（host 端代码 + 编译好的内核二进制）。</p>
+<p>和传统编译器（GCC&#x2F;LLVM）不同，Inductor 的工作对象不是标量指令，而是<strong>张量运算</strong>；它的优化目标也不是寄存器分配，而是<strong>算子融合、循环变换、内存复用</strong>。</p>
+<h3 id="3-2-核心设计理念：一切围绕”循环”"><a href="#3-2-核心设计理念：一切围绕”循环”" class="headerlink" title="3.2 核心设计理念：一切围绕”循环”"></a>3.2 核心设计理念：一切围绕”循环”</h3><p>Inductor 最重要的设计选择是：它的中间表示（IR）不是”算子列表”，而是<strong>循环结构</strong>。</p>
+<p>原因很朴素：GPU&#x2F;CPU 上的张量计算，最终都是嵌套循环。<code>add</code> 是循环，<code>relu</code> 是循环，<code>sum</code> 是带累加的循环，卷积拆开也是循环。如果把所有计算都表示成循环，那么：</p>
+<ul>
+<li><strong>算子融合 &#x3D; 循环合并</strong>：两个相邻算子的循环拼成一个，省掉中间结果的读写</li>
+<li><strong>循环变换</strong>（分块、重排、向量化）就是优化手段本身</li>
+</ul>
+<p>所以 Inductor 的整个后端都在做一件事：把 FX 图上的算子 lower 成循环 IR，然后合并、重排这些循环，最后生成代码。</p>
+<h3 id="3-3-编译流水线概览"><a href="#3-3-编译流水线概览" class="headerlink" title="3.3 编译流水线概览"></a>3.3 编译流水线概览</h3><pre class="mermaid">flowchart LR
+    A[FX 图<br>纯函数、已分解] --> B[图优化 Pass<br>模式匹配、算子级融合]
+    B --> C[Lowering<br>算子 → 循环 IR]
+    C --> D[Scheduler<br>融合、排序、内存规划]
+    D --> E[Codegen<br>IR → 内核源码]
+    E --> F[编译与缓存<br>生成 .so]
+    F --> G[加载执行]</pre>
+
+<p>四个阶段各司其职：</p>
+<ol>
+<li><strong>图优化（FX Passes）</strong>：在图层面做模式匹配与替换（比如把 <code>conv + relu</code> 合并成一个融合算子调用），这仍是”算子粒度”的优化</li>
+<li><strong>Lowering</strong>：把每个算子翻译成循环 IR。这是”算子 → 循环”的边界</li>
+<li><strong>Scheduler</strong>：核心中的核心。决定哪些循环合并成一个内核、按什么顺序执行、中间结果复用哪些内存</li>
+<li><strong>Codegen</strong>：把融合好的循环结构生成具体的内核源码——GPU 上生成 Triton 代码，CPU 上生成 C++&#x2F;OpenMP 代码——再调用编译器编译，缓存起来复用</li>
+</ol>
+<h3 id="3-4-两个关键设计决策"><a href="#3-4-两个关键设计决策" class="headerlink" title="3.4 两个关键设计决策"></a>3.4 两个关键设计决策</h3><p><strong>决策一：结构化算子不拆成循环。</strong> 前面 2.3 节讲过，<code>matmul</code>、<code>conv</code> 这类结构化算子在分解阶段就被保护；在 Inductor 内部也一样——它们不会被 lower 成循环，而是走两条专用通道：</p>
+<ul>
+<li><strong>模板（Template）</strong>：预写的高性能内核（如 GEMM 模板），带着参数（分块大小、warp 数）参与 autotune 挑选</li>
+<li><strong>外部库（Extern）</strong>：直接调用 cuBLAS&#x2F;cuDNN&#x2F;oneDNN 等成熟实现</li>
+</ul>
+<p>原因：这类算子的性能由手工调优的分块策略决定，通用循环融合做不出同样的效果。这个”循环管 elementwise&#x2F;reduction，模板和外库管结构化算子”的分工，是理解 Inductor 的关键，也是后面讲自研硬件（NPU）接入的伏笔。</p>
+<p><strong>决策二：后端可插拔。</strong> Inductor 的调度和代码生成按设备解耦：CPU 走 C++&#x2F;OpenMP 后端，GPU 走 Triton 后端，新硬件通过官方扩展点注册自己的后端即可复用整套编译流水线。</p>
+<h3 id="3-5-产物形态与调试"><a href="#3-5-产物形态与调试" class="headerlink" title="3.5 产物形态与调试"></a>3.5 产物形态与调试</h3><p>Inductor 一次编译的最终产物是一个 <strong>Python 模块</strong>：</p>
+<ul>
+<li>host 端代码：内存分配、内核调用序列</li>
+<li>内核源码：Triton 或 C++ 代码，编译成 <code>.so</code> 加载</li>
+<li>整个模块按”图 + 配置”的哈希做缓存，相同输入不重复编译</li>
+</ul>
+<p>调试手段上，我们前面已经用过的：</p>
+<ul>
+<li><code>TORCH_LOGS=&quot;+inductor&quot;</code>：打印编译日志和内核源码</li>
+<li><code>config.trace.enabled</code>：dump 每个阶段的中间产物（FX 图、融合前后 IR、生成代码）</li>
+<li><code>agent_space/inductor_debug.py --breakpoint</code>：在 Inductor 入口处进 pdb 逐步跟踪</li>
+</ul>
+<h3 id="3-6-后续章节预告"><a href="#3-6-后续章节预告" class="headerlink" title="3.6 后续章节预告"></a>3.6 后续章节预告</h3><p>接下来的文章会深入每一块：</p>
+<ul>
+<li>Lowering：算子如何变成循环 IR</li>
+<li>Scheduler：融合决策与内存规划</li>
+<li>Codegen：Triton&#x2F;C++ 代码生成</li>
+<li>缓存机制：编译产物的复用</li>
+<li>自研硬件（NPU）接入：分解保护、后端注册、自定义算子</li>
+</ul>
+</article>
+<div class="article-footer">
+    <section id="license">
+      <div class="header"><span>License</span></div>
+      <div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div>
+    </section>
+    
+
+
+    <section id="share">
+      <div class="header"><span>Share</span></div>
+      <div class="body">
+        <div class="link"><input class="copy-area" readonly="true" id="copy-link" value="https://curioyang.top/tech/Pytorch/TorchInductor_01/" /></div>
+        <div class="social-wrap dis-select"><a class="social share-item wechat" onclick="util.toggle(&quot;qrcode-wechat&quot;)"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/b32ef3da1162a.svg" /></a><a class="social share-item weibo" target="_blank" rel="external nofollow noopener noreferrer" href="https://service.weibo.com/share/share.php?url=https://curioyang.top/tech/Pytorch/TorchInductor_01/&title=「Inductor-1」从torch.compile开始认识整个流程 - Curio.OoO&summary=从顶层视图来认识整个流程"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/80c07e4dbb303.svg" /></a><a class="social share-item email" href="mailto:?subject=「Inductor-1」从torch.compile开始认识整个流程 - Curio.OoO&amp;body=https://curioyang.top/tech/Pytorch/TorchInductor_01/"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/a1b00e20f425d.svg" /></a><a class="social share-item link" onclick="util.copy(&quot;copy-link&quot;, &quot;Copied!&quot;)"><img  src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/8411ed322ced6.svg" /></a></div>
+        
+        <div class="qrcode" id="qrcode-wechat" style="opacity:0;height:0">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=https://curioyang.top/tech/Pytorch/TorchInductor_01/"/>
+        </div>
+        
+      </div>
+    </section>
+    </div>
+
+<div class="related-wrap" id="read-next"><section class="body"><div class="item" id="prev"><div class="note">Newer</div><a href="/tech/Pytorch/TorchInductor_02/">「Inductor-2」Inductor调试工具</a></div><div class="item" id="next"><div class="note">Older</div><a href="/tech/Pytorch/TorchInductor_00/">「Inductor-0」TorchInductor-介绍</a></div></section></div>
+
+
+
+
+  <div class="related-wrap md-text" id="comments">
+    <section class='header cmt-title cap theme'>
+      <p>快来参与讨论吧~</p>
+
+    </section>
+    <section class='body cmt-body giscus'>
+      
+
+<svg class="loading" style="vertical-align:middle;fill:currentColor;overflow:hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2709"><path d="M832 512c0-176-144-320-320-320V128c211.2 0 384 172.8 384 384h-64zM192 512c0 176 144 320 320 320v64C300.8 896 128 723.2 128 512h64z" p-id="2710"></path></svg>
+
+<div id="giscus" src="https://giscus.app/client.js" data-repo="curioyang/curio.github.io" data-repo-id="R_kgDOKuCPNA" data-category="Announcements" data-category-id="DIC_kwDOKuCPNM4CcUmT" data-mapping="url" data-strict="0" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="bottom" data-theme="catppuccin_frappe" data-lang="zh-CN" crossorigin="anonymous"></div>
+
+    </section>
+  </div>
+
+
+
+<footer class="page-footer footnote"><hr><div class="text"><p>本站由 <a href="/">Curio Yang</a> 使用 <a target="_blank" rel="noopener" href="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.33.1">Stellar 1.33.1</a> 主题创建。<br>本博客所有文章除特别声明外，均采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> 许可协议，转载请注明出处。<br><span id="busuanzi_container_site_pv">本站总访问量<span id="busuanzi_value_site_pv"></span>次</span></p>
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+</div></footer>
+<div class="main-mask" onclick="sidebar.dismiss()"></div></div><aside class="l_right">
+<div class="widgets">
+
+
+
+<widget class="widget-wrapper toc" id="data-toc" collapse="false"><div class="widget-header dis-select"><span class="name">On This Page</span><a class="cap-action" onclick="sidebar.toggleTOC()" ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></a></div><div class="widget-body"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="toc-text">整体流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-TorchDynamo"><span class="toc-text">1. TorchDynamo</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E6%A0%B8%E5%BF%83%E6%9C%BA%E5%88%B6"><span class="toc-text">1.1 核心机制</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-1-%E6%8B%A6%E6%88%AA%E5%AD%97%E8%8A%82%E7%A0%81"><span class="toc-text">1.1.1 拦截字节码</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-2-%E5%BB%BA%E7%AB%8B%E7%AC%A6%E5%8F%B7%E7%8E%AF%E5%A2%83"><span class="toc-text">1.1.2 建立符号环境</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-3-%E5%A4%84%E7%90%86Tensor-Op"><span class="toc-text">1.1.3 处理Tensor Op</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-4-%E5%A4%84%E7%90%86%E6%8E%A7%E5%88%B6%E6%B5%81"><span class="toc-text">1.1.4 处理控制流</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-5-%E6%94%AF%E6%8C%81Python%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-text">1.1.5 支持Python的数据结构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-6-Guard%E6%9C%BA%E5%88%B6"><span class="toc-text">1.1.6 Guard机制</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-7-Graph-Break"><span class="toc-text">1.1.7 Graph Break</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E8%BE%93%E5%87%BAFX-GraphModule"><span class="toc-text">1.2 输出FX GraphModule</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E5%85%B3%E9%94%AE%E4%BC%98%E5%8C%96%E5%92%8C%E7%89%B9%E6%80%A7"><span class="toc-text">1.3 关键优化和特性</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-AOTAutoGrad"><span class="toc-text">2. AOTAutoGrad</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-AOTAutograd"><span class="toc-text">2.1 为什么需要 AOTAutograd</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E6%A0%B8%E5%BF%83%E6%AD%A5%E9%AA%A4"><span class="toc-text">2.2 核心步骤</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-1-%E5%87%BD%E6%95%B0%E5%8C%96%EF%BC%88Functionalization%EF%BC%89"><span class="toc-text">2.2.1 函数化（Functionalization）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-2-%E7%AC%A6%E5%8F%B7%E6%B1%82%E5%AF%BC%EF%BC%8C%E7%94%9F%E6%88%90%E5%8F%8D%E5%90%91%E5%9B%BE"><span class="toc-text">2.2.2 符号求导，生成反向图</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-3-Joint-Graph%EF%BC%9A%E5%89%8D%E5%90%91-%E5%8F%8D%E5%90%91%E5%90%88%E5%B9%B6%E6%88%90%E4%B8%80%E5%BC%A0%E5%9B%BE"><span class="toc-text">2.2.3 Joint Graph：前向+反向合并成一张图</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-4-%E6%BF%80%E6%B4%BB%E5%86%85%E5%AD%98%EF%BC%9A%E4%BF%9D%E5%AD%98%E8%BF%98%E6%98%AF%E9%87%8D%E7%AE%97%EF%BC%9F"><span class="toc-text">2.2.4 激活内存：保存还是重算？</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E7%AE%97%E5%AD%90%E5%88%86%E8%A7%A3%EF%BC%88Decomposition%EF%BC%89%E2%80%94%E2%80%94-%E4%B8%8E-Inductor-%E5%85%B3%E7%B3%BB%E6%9C%80%E5%A4%A7%E7%9A%84%E4%B8%80%E8%8A%82"><span class="toc-text">2.3 算子分解（Decomposition）—— 与 Inductor 关系最大的一节</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%88%86%E8%A7%A3"><span class="toc-text">为什么分解</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%A4%E5%BC%A0%E5%88%86%E8%A7%A3%E8%A1%A8"><span class="toc-text">两张分解表</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%86%E8%A7%A3%E6%98%AF%E2%80%9D%E6%9C%89%E6%9D%A1%E4%BB%B6%E2%80%9D%E7%9A%84%E2%80%94%E2%80%94%E8%BF%99%E6%AD%A3%E6%98%AF%E8%87%AA%E7%A0%94%E7%A1%AC%E4%BB%B6%E7%9A%84%E6%8E%A7%E5%88%B6%E7%82%B9"><span class="toc-text">分解是”有条件”的——这正是自研硬件的控制点</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-Inductor-%E5%9C%A8-AOTAutograd-%E8%BE%93%E5%87%BA%E4%B8%8A%E7%9A%84%E4%BB%8B%E5%85%A5%E7%82%B9"><span class="toc-text">2.4 Inductor 在 AOTAutograd 输出上的介入点</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E5%B1%82%E5%9B%BE%E5%8F%98%E6%8D%A2%E7%9A%84%E5%BD%92%E5%B1%9E%EF%BC%88%E5%B0%8F%E7%BB%93%EF%BC%89"><span class="toc-text">三层图变换的归属（小结）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-5-%E8%B0%83%E8%AF%95-AOTAutograd"><span class="toc-text">2.5 调试 AOTAutograd</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-Inductor"><span class="toc-text">3. Inductor</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-Inductor-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-text">3.1 Inductor 是什么</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E6%A0%B8%E5%BF%83%E8%AE%BE%E8%AE%A1%E7%90%86%E5%BF%B5%EF%BC%9A%E4%B8%80%E5%88%87%E5%9B%B4%E7%BB%95%E2%80%9D%E5%BE%AA%E7%8E%AF%E2%80%9D"><span class="toc-text">3.2 核心设计理念：一切围绕”循环”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E7%BC%96%E8%AF%91%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%A6%82%E8%A7%88"><span class="toc-text">3.3 编译流水线概览</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-%E4%B8%A4%E4%B8%AA%E5%85%B3%E9%94%AE%E8%AE%BE%E8%AE%A1%E5%86%B3%E7%AD%96"><span class="toc-text">3.4 两个关键设计决策</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-5-%E4%BA%A7%E7%89%A9%E5%BD%A2%E6%80%81%E4%B8%8E%E8%B0%83%E8%AF%95"><span class="toc-text">3.5 产物形态与调试</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-6-%E5%90%8E%E7%BB%AD%E7%AB%A0%E8%8A%82%E9%A2%84%E5%91%8A"><span class="toc-text">3.6 后续章节预告</span></a></li></ol></li></ol></div><div class="widget-footer"><a class="top" onclick="util.scrollTop()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path stroke-linejoin="round" d="m9 15.5l3-3l3 3m-6-4l3-3l3 3"/><path d="M7 3.338A9.95 9.95 0 0 1 12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12c0-1.821.487-3.53 1.338-5"/></g></svg><span>Scroll to Top</span></a><a class="buttom" onclick="util.scrollComment()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="M8 10.5h8M8 14h5.5M17 3.338A9.95 9.95 0 0 0 12 2C6.477 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453c.178.356.237.763.134 1.148l-.595 2.226a1.3 1.3 0 0 0 1.591 1.592l2.226-.596a1.63 1.63 0 0 1 1.149.133A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10c0-1.821-.487-3.53-1.338-5"/></svg><span>Join Discussion</span></a></div></widget>
+</div></aside><div class='float-panel'>
+  <button type='button' style='display:none' class='laptop-only rightbar-toggle mobile' onclick='sidebar.rightbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+  </button>
+  <button type='button' style='display:none' class='mobile-only leftbar-toggle mobile' onclick='sidebar.leftbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11c0-3.771 0-5.657 1.172-6.828C4.343 3 6.229 3 10 3h4c3.771 0 5.657 0 6.828 1.172C22 5.343 22 7.229 22 11v2c0 3.771 0 5.657-1.172 6.828C19.657 21 17.771 21 14 21h-4c-3.771 0-5.657 0-6.828-1.172C2 18.657 2 16.771 2 13z"/><path id="sep" stroke-linecap="round" d="M5.5 10h6m-5 4h4m4.5 7V3"/></g></svg>
+  </button>
+</div>
+</div><div class="scripts">
+
+
+<script type="text/javascript">
+  window.canonical = {"originalHost":null,"officialHosts":["localhost"],"encoded":""};
+  const ctx = {
+    date_suffix: {
+      just: `Just`,
+      min: `minutes ago`,
+      hour: `hours ago`,
+      day: `days ago`,
+    },
+    root : `/`,
+    tag_plugins: {
+      chat: Object.assign({"api":"https://siteinfo.listentothewind.cn/api/v1"}),
+    }
+  };
+
+  // required plugins (only load if needs)
+  if (`local_search`) {
+    ctx.search = {};
+    ctx.search.service = `local_search`;
+    if (ctx.search.service == 'local_search') {
+      let service_obj = Object.assign({}, `{"field":"all","path":"/search.json","content":true,"skip_search":null,"sort":"-date"}`);
+      ctx.search[ctx.search.service] = service_obj;
+    }
+  }
+  const def = {
+    avatar: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/3442075.svg`,
+    cover: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/cover/76b86c0226ffd.svg`,
+    loading: `https://api.iconify.design/eos-icons:three-dots-loading.svg?color=%231cd0fd`,
+  };
+  const deps = {
+    jquery: `https://gcore.jsdelivr.net/npm/jquery@3.7/dist/jquery.min.js`,
+    marked: `https://gcore.jsdelivr.net/npm/marked@13.0/lib/marked.umd.min.js`,
+    lazyload: `/%5Bobject%20Object%5D`
+  }
+  
+
+</script>
+
+<script type="text/javascript">
+  
+  function RunItem() {
+    this.list = []; // 存放回调函数
+    this.start = () => {
+      for (var i = 0; i < this.list.length; i++) {
+        this.list[i].run();
+      }
+    };
+    this.push = (fn, name, setRequestAnimationFrame = true) => {
+      let myfn = fn
+      if (setRequestAnimationFrame) {
+        myfn = () => {
+          utils.requestAnimationFrame(fn)
+        }
+      }
+      var f = new Item(myfn, name);
+      this.list.push(f);
+    };
+    this.remove = (name) => {
+      for (let index = 0; index < this.list.length; index++) {
+        const e = this.list[index];
+        if (e.name == name) {
+          this.list.splice(index, 1);
+        }
+      }
+    }
+    // 构造一个可以run的对象
+    function Item(fn, name) {
+      // 函数名称
+      this.name = name || fn.name;
+      // run方法
+      this.run = () => {
+        try {
+          fn()
+        } catch (error) {
+          console.log(error);
+        }
+      };
+    }
+  }
+
+  const utils = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    css: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    js: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      if (src.startsWith('/')) {
+        src = ctx.root + src.substring(1);
+      }
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function () {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    jq: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        utils.js(deps.jquery).then(fn)
+      } else {
+        fn()
+      }
+    },
+
+    onLoading: (el) => {
+      if (el) {
+        $(el).append('<div class="loading-wrap"><svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" stroke-opacity=".3" d="M12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="1.3s" values="60;0"/></path><path stroke-dasharray="15" stroke-dashoffset="15" d="M12 3C16.9706 3 21 7.02944 21 12"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.3s" values="15;0"/><animateTransform attributeName="transform" dur="1.5s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12"/></path></g></svg></div>');
+      }
+    },
+    onLoadSuccess: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap').remove();
+      }
+    },
+    onLoadFailure: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap svg').remove();
+        $(el).find('.loading-wrap').append('<svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" d="M12 3L21 20H3L12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.5s" values="60;0"/></path><path stroke-dasharray="6" stroke-dashoffset="6" d="M12 10V14"><animate fill="freeze" attributeName="stroke-dashoffset" begin="0.6s" dur="0.2s" values="6;0"/></path></g><circle cx="12" cy="17" r="1" fill="currentColor" fill-opacity="0"><animate fill="freeze" attributeName="fill-opacity" begin="0.8s" dur="0.4s" values="0;1"/></circle></svg>');
+        $(el).find('.loading-wrap').addClass('error');
+      }
+    },
+    request: (el, url, callback, onFailure) => {
+      const maxRetry = 3;
+      let retryCount = 0;
+
+      return new Promise((resolve, reject) => {
+        const load = () => {
+          utils.onLoading?.(el);
+
+          let timedOut = false;
+          const timeout = setTimeout(() => {
+            timedOut = true;
+            console.warn('[request] 超时:', url);
+
+            if (++retryCount >= maxRetry) {
+              utils.onLoadFailure?.(el);
+              onFailure?.();
+              reject('请求超时');
+            } else {
+              setTimeout(load, 1000);
+            }
+          }, 5000);
+
+          fetch(url).then(resp => {
+            if (timedOut) return;
+            clearTimeout(timeout);
+
+            if (!resp.ok) throw new Error('响应失败');
+            return resp;
+          }).then(data => {
+            if (timedOut) return;
+            utils.onLoadSuccess?.(el);
+            callback(data);
+            resolve(data);
+          }).catch(err => {
+            clearTimeout(timeout);
+            console.warn('[request] 错误:', err);
+
+            if (++retryCount >= maxRetry) {
+              utils.onLoadFailure?.(el);
+              onFailure?.();
+              reject(err);
+            } else {
+              setTimeout(load, 1000);
+            }
+          });
+        };
+
+        load();
+      });
+    },
+    requestWithoutLoading: (url, options = {}, maxRetry = 2, timeout = 5000) => {
+      return new Promise((resolve, reject) => {
+        let retryCount = 0;
+
+        const tryRequest = () => {
+          let timedOut = false;
+          const timer = setTimeout(() => {
+            timedOut = true;
+            if (++retryCount > maxRetry) reject('timeout');
+            else tryRequest();
+          }, timeout);
+
+          fetch(url, options)
+            .then(resp => {
+              clearTimeout(timer);
+              if (!resp.ok) throw new Error('bad response');
+              resolve(resp);
+            })
+            .catch(err => {
+              clearTimeout(timer);
+              if (++retryCount > maxRetry) reject(err);
+              else setTimeout(tryRequest, 500);
+            });
+        };
+
+        tryRequest();
+      });
+    },
+    /********************** requestAnimationFrame ********************************/
+    // 1、requestAnimationFrame 会把每一帧中的所有 DOM 操作集中起来，在一次重绘或回流中就完成，并且重绘或回流的时间间隔紧紧跟随浏览器的刷新频率，一般来说，这个频率为每秒60帧。
+    // 2、在隐藏或不可见的元素中，requestAnimationFrame 将不会进行重绘或回流，这当然就意味着更少的的 cpu，gpu 和内存使用量。
+    requestAnimationFrame: (fn) => {
+      if (!window.requestAnimationFrame) {
+        window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame;
+      }
+      window.requestAnimationFrame(fn)
+    },
+    dark: {},
+  };
+
+  // utils.dark.mode 当前模式 dark or light
+  // utils.dark.toggle() 暗黑模式触发器
+  // utils.dark.push(callBack[,"callBackName"]) 传入触发器回调函数
+  utils.dark.method = {
+    toggle: new RunItem(),
+  };
+  utils.dark = Object.assign(utils.dark, {
+    push: utils.dark.method.toggle.push,
+  });
+</script>
+<script>
+  const sidebar = {
+    leftbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    rightbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('rightbar');
+        l_body.removeAttribute('leftbar');
+      }
+    },
+    dismiss: () => {
+      if (l_body) {
+        l_body.removeAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    toggleTOC: () => {
+      document.querySelector('#data-toc').classList.toggle('collapse');
+    }
+  }
+</script>
+<script type="text/javascript">
+  (() => {
+    const tagSwitchers = document.querySelectorAll('.tag-subtree.parent-tag > a > .tag-switcher-wrapper')
+    for (const tagSwitcher of tagSwitchers) {
+      tagSwitcher.addEventListener('click', (e) => {
+        const parent = e.target.closest('.tag-subtree.parent-tag')
+        parent.classList.toggle('expanded')
+        e.preventDefault()
+      })
+    }
+
+    // Get active tag from query string, then activate it.
+    const urlParams = new URLSearchParams(window.location.search)
+    const activeTag = urlParams.get('tag')
+    if (activeTag) {
+      let tag = document.querySelector(`.tag-subtree[data-tag="${activeTag}"]`)
+      if (tag) {
+        tag.querySelector('a').classList.add('active')
+        
+        while (tag) {
+          tag.classList.add('expanded')
+          tag = tag.parentElement.closest('.tag-subtree.parent-tag')
+        }
+      }
+    }
+  })()
+</script>
+
+<script async src="https://gcore.jsdelivr.net/npm/vanilla-lazyload@19.1/dist/lazyload.min.js"></script>
+<script>
+  // https://www.npmjs.com/package/vanilla-lazyload
+  // Set the options globally
+  // to make LazyLoad self-initialize
+  window.lazyLoadOptions = {
+    elements_selector: ".lazy",
+    callback_loaded: (el) => {
+      el.classList.add('loaded');
+      const wrapper = el.closest('.lazy-box');
+      const icon = wrapper?.querySelector('.lazy-icon');
+      if (icon) icon.remove();
+    }
+  };
+  // Listen to the initialization event
+  // and get the instance of LazyLoad
+  window.addEventListener(
+    "LazyLoad::Initialized",
+    function (event) {
+      window.lazyLoadInstance = event.detail.instance;
+    },
+    false
+  );
+  document.addEventListener('DOMContentLoaded', function () {
+    window.lazyLoadInstance?.update();
+  });
+
+  window.wrapLazyloadImages = (container) => {
+    if (typeof container === 'string') {
+      container = document.querySelector(container);
+    }
+    if (!container) return;
+    
+    const images = container.querySelectorAll('img');
+    images.forEach((img) => {
+      if (img.classList.contains('lazy')) return;
+
+      const src = img.getAttribute('src');
+      if (!src) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'lazy-box';
+
+      const newImg = img.cloneNode();
+      newImg.removeAttribute('src');
+      newImg.setAttribute('data-src', src);
+      newImg.classList.add('lazy');
+
+      const icon = document.createElement('div');
+      icon.className = 'lazy-icon';
+      if (def.loading) {
+        icon.style.backgroundImage = `url("${def.loading}")`;
+      }
+
+      wrapper.appendChild(newImg);
+      wrapper.appendChild(icon);
+
+      img.replaceWith(wrapper);
+    });
+
+    // 通知 LazyLoad 更新
+    if (window.lazyLoadInstance?.update) {
+      window.lazyLoadInstance.update();
+    }
+  }
+  
+</script>
+
+<!-- required -->
+<script src="/js/main.js?v=1.33.1" defer></script>
+
+<script type="text/javascript">
+  const applyTheme = (theme) => {
+    if (theme === 'auto') {
+      document.documentElement.removeAttribute('data-theme')
+    } else {
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+
+    // applyThemeToGiscus(theme)
+  }
+
+  // FIXME: 这会导致无法使用 preferred_color_scheme 以外的主题
+  const applyThemeToGiscus = (theme) => {
+    // theme = theme === 'auto' ? 'preferred_color_scheme' : theme
+    const cmt = document.getElementById('giscus')
+    if (cmt) {
+      // This works before giscus load.
+      cmt.setAttribute('data-theme', theme)
+    }
+
+    const iframe = document.querySelector('#comments > section.giscus > iframe')
+    if (iframe) {
+      // This works after giscus loaded.
+      const src = iframe.src
+      const newSrc = src.replace(/theme=[\w]+/, `theme=${theme}`)
+      iframe.src = newSrc
+    }
+  }
+
+  const switchTheme = () => {
+    // light -> dark -> auto -> light -> ...
+    const currentTheme = document.documentElement.getAttribute('data-theme')
+    let newTheme;
+    switch (currentTheme) {
+      case 'light':
+        newTheme = 'dark'
+        break
+      case 'dark':
+        newTheme = 'auto'
+        break
+      default:
+        newTheme = 'light'
+    }
+    applyTheme(newTheme)
+    window.localStorage.setItem('Stellar.theme', newTheme)
+    utils.dark.mode = newTheme === 'auto' ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : newTheme;
+    utils.dark.method.toggle.start();
+
+    const messages = {
+      light: `Switched to Light Mode`,
+      dark: `Switched to Dark Mode`,
+      auto: `Switched to Auto Mode`,
+    }
+    hud?.toast?.(messages[newTheme])
+  }
+
+  (() => {
+    // Apply user's preferred theme, if any.
+    const theme = window.localStorage.getItem('Stellar.theme')
+    if (theme !== null) {
+      applyTheme(theme)
+    } else {
+      utils.dark.mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    utils.dark.method.toggle.start();
+  })()
+</script>
+
+
+<!-- optional -->
+
+  <script type="module">
+  const el = document.querySelector('#comments #giscus');
+  util.viewportLazyload(el, load_discus, false);
+
+  function load_discus() {
+    if (!el) return;
+    try {
+        el.innerHTML = '';
+      } catch (error) {
+        console.error(error);
+      }
+      const script = document.createElement('script');
+      script.async = true;
+      for (const key of Object.keys(el.attributes)) {
+        const attr = el.attributes[key];
+        if (['class', 'id'].includes(attr.name) === false) {
+          script.setAttribute(attr.name, attr.value);
+        }
+      }
+      el.appendChild(script);
+  }
+</script>
+
+
+
+
+<script defer>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.services = Object.assign({}, JSON.parse(`{"mdrender":{"js":"/js/services/mdrender.js"},"siteinfo":{"js":"/js/services/siteinfo.js","api":null},"ghinfo":{"js":"/js/services/ghinfo.js"},"rating":{"js":"/js/services/rating.js","api":"https://star-vote.xaox.cc/api/rating"},"vote":{"js":"/js/services/vote.js","api":"https://star-vote.xaox.cc/api/vote"},"sites":{"js":"/js/services/sites.js"},"friends":{"js":"/js/services/friends.js"},"friends_and_posts":{"js":"/js/services/friends_and_posts.js"},"timeline":{"js":"/js/services/timeline.js"},"fcircle":{"js":"/js/services/fcircle.js"},"weibo":{"js":"/js/services/weibo.js"},"memos":{"js":"/js/services/memos.js"},"voice":{"js":"/js/plugins/voice.js"},"video":{"js":"/js/plugins/video.js"},"download-file":{"js":"/js/plugins/download-file.js"},"twikoo":{"js":"/js/services/twikoo_latest_comment.js"},"waline":{"js":"/js/services/waline_latest_comment.js"},"artalk":{"js":"/js/services/artalk_latest_comment.js"},"giscus":{"js":"/js/services/giscus_latest_comment.js"},"contributors":{"edit_this_page":{"_posts/":null,"wiki/stellar/":"https://github.com/xaoxuu/hexo-theme-stellar-docs/blob/main/"},"js":"/js/services/contributors.js"}}`));
+    for (let id of Object.keys(ctx.services)) {
+      const js = ctx.services[id].js;
+      if (id == 'siteinfo') {
+        ctx.cardlinks = document.querySelectorAll('a.link-card[cardlink]');
+        if (ctx.cardlinks?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            setCardLink(ctx.cardlinks);
+          });
+        }
+      } else if (id == 'voice') {
+        ctx.voiceAudios = document.querySelectorAll('.voice>audio');
+        if (ctx.voiceAudios?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            createVoiceDom(ctx.voiceAudios);
+          });
+        }
+      } else if (id == 'video') {
+        ctx.videos = document.querySelectorAll('.video>video');
+        if (ctx.videos?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            videoEvents(ctx.videos);
+          });
+        }
+      } else if (id == 'download-file') {
+        ctx.files = document.querySelectorAll('.file');
+        if (ctx.files?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            downloadFileEvent(ctx.files);
+          });
+        }
+      } else {
+        const els = document.getElementsByClassName(`ds-${id}`);
+        if (els?.length > 0) {
+          utils.jq(() => {
+            if (id == 'timeline' || 'memos' || 'marked') {
+              utils.js(deps.marked).then(function () {
+                utils.js(js, { defer: true });
+              });
+            } else {
+              utils.js(js, { defer: true });
+            }
+          });
+        }
+      }
+    }
+
+    // chat iphone time
+    let phoneTimes = document.querySelectorAll('.chat .status-bar .time');
+
+    if (phoneTimes.length > 0) {
+      NowTime();
+      var date = new Date();
+      var sec = date.getSeconds();
+      var firstAdjustInterval = setInterval(firstAdjustTime, 1000 * (60 - sec));
+    }
+
+    function firstAdjustTime() {
+      NowTime();
+      clearInterval(firstAdjustInterval);
+      setInterval(NowTime, 1000 * 60);
+    }
+
+    function NowTime() {
+      for (let i = 0; i < phoneTimes.length; ++i) {
+        var timeSpan = phoneTimes[i];
+        var date = new Date();
+        var hour = date.getHours();
+        var min = date.getMinutes();
+        timeSpan.innerHTML = check(hour) + ":" + check(min);
+      }
+    };
+
+    function check(val) {
+      if (val < 10) {
+        return ("0" + val);
+      }
+      return (val);
+    }
+
+    // chat quote
+    const chat_quote_obverser = new IntersectionObserver((entries, observer) => {
+      entries.filter((entry) => { return entry.isIntersecting }).sort((a, b) => a.intersectionRect.y !== b.intersectionRect.y ? a.intersectionRect.y - b.intersectionRect.y : a.intersectionRect.x - b.intersectionRect.x).forEach((entry, index) => {
+          observer.unobserve(entry.target);
+          setTimeout(() => {
+            entry.target.classList.add('quote-blink');
+            setTimeout(() => {
+              entry.target.classList.remove('quote-blink');
+            }, 1000);
+          }, Math.max(100, 16) * (index + 1));
+        });
+    });
+
+    var chatQuotes = document.querySelectorAll(".chat .talk .quote");
+    chatQuotes.forEach((quote) => {
+      quote.addEventListener('click', function () {
+        var chatCellDom = document.getElementById("quote-" + quote.getAttribute("quotedCellTag"));
+        if (chatCellDom) {
+          var chatDiv = chatCellDom.parentElement;
+          var mid = chatDiv.clientHeight / 2;
+          var offsetTop = chatCellDom.offsetTop;
+          if (offsetTop > mid - chatCellDom.clientHeight / 2) {
+            chatDiv.scrollTo({
+              top: chatCellDom.offsetTop - mid + chatCellDom.clientHeight / 2,
+              behavior: "smooth"
+            });
+          } else {
+            chatDiv.scrollTo({
+              top: 0,
+              behavior: "smooth"
+            });
+          }
+          chat_quote_obverser.observe(chatCellDom);
+        }
+      });
+    });
+  });
+</script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.search = {
+      path: `/search.json`,
+    }
+    utils.js('/js/search/local-search.js', { defer: true });
+  });
+</script><script>
+  window.FPConfig = {
+    delay: 0,
+    ignoreKeywords: [],
+    maxRPS: 5,
+    hoverDelay: 25
+  };
+</script>
+<script defer src="https://cdn.bootcdn.net/ajax/libs/flying-pages/2.1.2/flying-pages.min.js"></script><script>
+  ctx.fancybox = {
+    selector: ``,
+    css: `https://cdn.bootcdn.net/ajax/libs/fancyapps-ui/5.0.22/fancybox/fancybox.min.css`,
+    js: `https://cdn.bootcdn.net/ajax/libs/fancyapps-ui/5.0.22/fancybox/fancybox.umd.min.js`
+  };
+  var selector = '[data-fancybox]:not(.error), .with-fancybox .atk-content img:not([atk-emoticon])';
+  if (ctx.fancybox.selector) {
+    selector += `, ${ctx.fancybox.selector}`
+  }
+  var needFancybox = document.querySelectorAll(selector).length !== 0;
+  if (!needFancybox) {
+    const memos = document.getElementsByClassName('ds-memos');
+    if (memos != undefined && memos.length > 0) {
+      needFancybox = true;
+    }
+    const fancybox = document.getElementsByClassName('with-fancybox');
+    if (fancybox != undefined && fancybox.length > 0) {
+      needFancybox = true;
+    }
+  }
+  if (needFancybox) {
+    utils.css(ctx.fancybox.css);
+    utils.js(ctx.fancybox.js, { defer: true }).then(function () {
+      Fancybox.bind(selector, {
+        hideScrollbar: false,
+        Thumbs: {
+          autoStart: false,
+        },
+        caption: (fancybox, slide) => {
+          return slide.triggerEl.alt || slide.triggerEl.dataset.caption || null
+        }
+      });
+    })
+  }
+</script>
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    const swiper_api = document.getElementById('swiper-api');
+    if (swiper_api != undefined) {
+      utils.css(`https://unpkg.com/swiper@10.3/swiper-bundle.min.css`);
+      utils.js(`https://unpkg.com/swiper@10.3/swiper-bundle.min.js`, { defer: true }).then(function () {
+        const effect = swiper_api.getAttribute('effect') || '';
+        var swiper = new Swiper('.swiper#swiper-api', {
+          slidesPerView: 'auto',
+          spaceBetween: 8,
+          centeredSlides: true,
+          effect: effect,
+          rewind: true,
+          pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+          },
+          navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+          },
+        });
+      })
+    }
+  });
+</script>
+<script defer type="text/javascript" src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    var mermaid_config = {
+      startOnLoad: true,
+      theme:
+        "auto" == "auto" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "neutral",
+      logLevel: 3,
+      themeVariables: {
+        darkMode: true
+      },
+      flowchart: {
+        useMaxWidth: false,
+        htmlLabels: true,
+        curve: "linear"
+      },
+      gantt: {
+        axisFormat: "%Y/%m/%d"
+      },
+      sequence: {
+        actorMargin: 50
+      }
+    }
+    mermaid.initialize(mermaid_config);
+  });
+</script><script>
+  document.addEventListener('DOMContentLoaded', function () {
+    window.codeElements = document.querySelectorAll('.code');
+    if (window.codeElements.length > 0) {
+      ctx.copycode = {
+        default_text: `Copy`,
+        success_text: `Copied`,
+        toast: `复制成功`,
+      };
+      utils.js('/js/plugins/copycode.js');
+    }
+  });
+</script>
+
+
+<!-- inject -->
+
+</div></body></html>
